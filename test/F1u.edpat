@@ -1,0 +1,49 @@
+#addr.edpat;
+
+!---------------------F1u Subnet
+$LOCALMAC	=	$F1u_LOCAL_MAC;
+$LOCALIP	=	$F1u_LOCAL_IP;
+$REMOTEMAC	=	$F1u_REMOTE_MAC;
+$REMOTEIP	=	$F1u_REMOTE_IP1;
+$ETHPORT	=	$F1u_ETHPORT;
+
+@ARP_F1u0;
+#arp.edpat;
+
+<$ETHPORT
+!----------------Ethernet header
+$LOCALMAC		!00-05  Dst MAC Addr
+$REMOTEMAC		!06-11  Src MAC Addr
+08 06			!12-13  EtherType=ARP
+!----------------ARP Reply packet
+00 01			!14-15  HW Type=Ethernet
+08 00			!16-17  Protocol Type=IPV4
+06			!18     HW Size
+04			!19     Protocl Size
+00 02			!20-21  OpCode=Request
+$REMOTEMAC		!22-27  Sender MAC Addr
+$REMOTEIP		!28-31  Sender IP Addr
+$LOCALMAC		!32-37  Target MAC Addr
+$LOCALIP;		!38-41  Target IP Addr
+
+@ARP_F1u1;
+$REMOTEIP	=	$F1u_REMOTE_IP2;
+#arp.edpat;
+
+<$ETHPORT
+!----------------Ethernet header
+$LOCALMAC		!00-05  Dst MAC Addr
+$REMOTEMAC		!06-11  Src MAC Addr
+08 06			!12-13  EtherType=ARP
+!----------------ARP Reply packet
+00 01			!14-15  HW Type=Ethernet
+08 00			!16-17  Protocol Type=IPV4
+06			!18     HW Size
+04			!19     Protocl Size
+00 02			!20-21  OpCode=Request
+$REMOTEMAC		!22-27  Sender MAC Addr
+$REMOTEIP		!28-31  Sender IP Addr
+$LOCALMAC		!32-37  Target MAC Addr
+$LOCALIP;		!38-41  Target IP Addr
+
+

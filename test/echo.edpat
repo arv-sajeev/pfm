@@ -1,0 +1,61 @@
+
+>$ETHPORT
+!----------------Ethernet header
+$REMOTEMAC		!00-05  Dst MAC Addr
+$LOCALMAC		!06-11	Src MAC Addr
+08 00			!12-13	EtherType=ICMP
+!IP Header
+45			!14    Version and Header Length
+00			!15    DSCP
+00 54			!16-17 Total Lenght
+7d 86			!18-19 Identifier
+40 00			!20-21 Flags
+40			!22    Time to Live
+01			!23 Protocol = ICMP
+&14-33			!24-25 Checksum of the complete IP header
+$LOCALIP		!26-29 Soruce IP
+$REMOTEIP		!30-33 Dsp IP
+!Below is the ICMP Payload
+08			!34    ICMP Type = Echo Request
+00			!35    Code
+&34-97			!36-37 Checksum
+4c 09			!38-39 Identifier 
+00 04			!40-41 Sequence No
+!Rest is data
+b8 3d 7e 64 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00;
+
+<$ETHPORT
+!----------------Ethernet header
+$LOCALMAC		!00-05	Dst MAC Addr
+$REMOTEMAC		!05-11  Src MAC Addr
+08 00			!12-13	EtherType=ICMP
+!Below is IP Header
+45			!14     IP Version & Header Len
+00			!15     DSCP
+00 54			!16-17  Total Length
+* *			!18-19 Identifier
+00 00			!20-21  Flags
+40			!22     Time to live
+01			!23     Protocol = ICMP
+* *			!24-25  Checksum of complete IP header. 
+$REMOTEIP		!26-29  Souce IP
+$LOCALIP		!30-33  Dest IP
+!Below is the ICMP Payload
+00			!34     ICMP Type = Echo Reply
+00			!35     Code
+* *			!36-37 Cheksum
+4c 09			!38-39 Identifier
+00 04			!40-41 Sequnce No
+!Rest is data
+b8 3d 7e 64 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00;
+

@@ -1,0 +1,36 @@
+
+>$ETHPORT
+!----------------Ethernet header
+$REMOTEMAC		!00-05  Dst MAC Addr
+$LOCALMAC		!06-11	Src MAC Addr
+08 06			!12-13	EtherType=ARP
+!----------------ARP Request packet
+00 01			!14-15	HW Type=Ethernet
+08 00			!16-17	Protocol Type=IPV4
+06			!18	HW Size
+04			!19	Protocl Size
+00 01			!20-21	OpCode=Request
+$LOCALMAC		!22-27	Sender MAC Addr
+$LOCALIP		!28-31	Sender IP Addr
+00 00 00 00 00 00	!32-37	Target MAC Addr
+$REMOTEIP		!38-41	Target IP Addr
+!----------------Padding
+00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00;
+
+<$ETHPORT
+!----------------Ethernet header
+$LOCALMAC		!00-05  Dst MAC Addr
+$REMOTEMAC		!06-11  Src MAC Addr
+08 06			!12-13  EtherType=ARP
+!----------------ARP Reply packet
+00 01			!14-15  HW Type=Ethernet
+08 00			!16-17  Protocol Type=IPV4
+06			!18     HW Size
+04			!19     Protocl Size
+00 02			!20-21  OpCode=Request
+$REMOTEMAC		!22-27  Sender MAC Addr
+$REMOTEIP		!28-31  Sender IP Addr
+$LOCALMAC		!32-37  Target MAC Addr
+$LOCALIP;		!38-41  Target IP Addr
+
