@@ -6,7 +6,7 @@ APP = cuup.exe
 
 # all source are stored in SRCS-y
 SRCS-y :=	cuup.c \
-		dppf.c \
+		pfm.c \
 		pfm_log.c \
 		workerLoop.c \
 		link.c \

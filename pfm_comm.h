@@ -14,6 +14,7 @@
 #define	MBUF_NAME	"MBUF"
 #define	TX_RING_NAME	"TXRING"
 #define	RX_RING_NAME	"RXRING"
+#define DIST_NAME	"DISTNAME"
 
 #define TX_RING_SIZE    64
 #define RX_RING_SIZE    TX_RING_SIZE
@@ -67,6 +68,7 @@ typedef struct {
         struct rte_ring *rx_ring_ptr ;
         struct rte_ring *tx_ring_ptr ;
 	struct rte_kni *kni_ptr;
+	struct rte_distributor *dist_ptr;
 } sys_info_t;
 
 

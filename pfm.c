@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <rte_common.h>
+#include <rte_distributor.h>
 
 #include "pfm.h"
 #include "pfm_comm.h"
@@ -20,11 +21,11 @@ sys_info_t	sys_info_g =
         .mbuf_pool	= NULL,
         .rx_ring_ptr	= NULL,
         .tx_ring_ptr	= NULL,
+	.dist_ptr 	= NULL
 };
 
 pfm_retval_t pfm_init(int argc, char *argv[])
 {
-	//SAJEEV pfm_retval_t retVal;
 	int ret;
 	int lcore_count;
 
@@ -81,7 +82,7 @@ pfm_retval_t pfm_init(int argc, char *argv[])
 		return PFM_FAILED;
         }
 
-        pfm_trace_msg("Ring '%s' openned",TX_RING_NAME);
+        pfm_trace_msg("Ring '%s' opened",TX_RING_NAME);
 
         sys_info_g.rx_ring_ptr = rte_ring_create(
                                         RX_RING_NAME,
@@ -98,7 +99,19 @@ pfm_retval_t pfm_init(int argc, char *argv[])
 		return PFM_FAILED;
         }
 
-        pfm_trace_msg("Ring '%s' openned",RX_RING_NAME);
+        pfm_trace_msg("Ring '%s' opened",RX_RING_NAME);
+
+	sys_info_g.dist_ptr = rte_distributor_create(DISTNAME,
+						    rte_socket_id(),
+						    rte_lcore_count() - 4,
+						    RTE_DIST_ALG_BURST);
+	if (NULL = sys_info_g.dist_ptr)	{
+		pfm_log_rte_err(PFM_LOG_EMERG,
+				"rte_distributor_create(distributor=%s,socket=%d,workers=%d,RTE_DIST_ALG_BURST"
+				"Terminating",
+				DISTNAME,rte_socket_id(),rte_lcore_count()-4);
+		return PFM_FAILED;
+	}
 
  	pfm_trace_msg("DPPF Initialization successful");
 
@@ -111,13 +124,23 @@ pfm_retval_t pfm_start_pkt_processing(void)
 	int workerCount=0;
 
         ret = rte_eal_remote_launch(txLoop, NULL, LCORE_TXLOOP);
-        if (0 != ret)
+	if (0 != ret)
         {
                 pfm_log_rte_err(PFM_LOG_EMERG,
 				"rte_eal_remote_launch(txLoop) failed");
 		return PFM_FAILED;
         }
         pfm_trace_msg("TX thread started");
+	
+	ret = rte_eal_remote_launch(distLoop,NULL,LCORE_DISTRIBUTOR);
+	if (0 != ret)	{
+
+		pfm_log_rte_err(PFM_LOG_EMERG,
+				"rte_eal_remote_launch(distLoop) failed");
+		return PFM_FAILED;
+	}
+	pfm_trace_msg("Dist thread started ");
+	cnt = 0;
 
 	for(int lc=0; lc < sys_info_g.lcore_count; lc++)
 	{
@@ -144,6 +167,7 @@ pfm_retval_t pfm_start_pkt_processing(void)
 	{
 		pfm_trace_msg("%d WORKERs lcore started",workerCount);
 	}
+
 	else
 	{
                	pfm_log_msg(PFM_LOG_EMERG,
@@ -158,9 +182,7 @@ pfm_retval_t pfm_start_pkt_processing(void)
 				"rte_eal_remote_launch(rxLoop) failed");
 		return PFM_FAILED;
         }
-
         pfm_trace_msg("RX thread started");
-
 	return PFM_SUCCESS;
 }
 
