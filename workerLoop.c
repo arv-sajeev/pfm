@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <rte_common.h>
+#include <rte_distributor.h>
+
 
 #include "pfm.h"
 #include "pfm_comm.h"
@@ -34,6 +36,7 @@ int workerLoop( __attribute__((unused)) void *args)
 	uint16_t nbRx;
 	uint16_t nbTx;
 	int retVal;
+	struct rte_distributor *dist = sys_info_g.dist_ptr;
 
 	pfm_trace_msg("WORKER thread started");
 
@@ -44,11 +47,17 @@ int workerLoop( __attribute__((unused)) void *args)
 			pfm_trace_msg("Stopping WORKER thread");
 			return 0;
 		}
-		nbRx = rte_ring_dequeue_burst(	sys_info_g.rx_ring_ptr,
-					(void **) rxPkts,
-					RX_BURST_SIZE,
-					NULL);
+		nbRx = rte_distributor_get_pkt(dist,
+					       rte_lcore_id(),
+					       rxPkts,
+					       RX_BURST_SIZE);
+					
 		if (0 >= nbRx) continue;
+
+		pfm_trace_msg("Received %d packets on lcore %d",
+			       nbRx,
+			       rte_lcore_id()
+			       };
 
 
 		nbTx = nbRx;
@@ -77,8 +86,8 @@ int workerLoop( __attribute__((unused)) void *args)
 				pkt[j] = pkt[j+6];
 				pkt[j+6] = x;
 			};
-                        retVal = rte_ring_enqueue(      sys_info_g.tx_ring_ptr,
-                                                        rxPkts[i]);
+                        retVal = rte_ring_enqueue(sys_info_g.tx_ring_ptr,
+						  rxPkts[i]);
                         if (0 != retVal)
                         {
 				pfm_log_rte_err(PFM_LOG_EMERG,
