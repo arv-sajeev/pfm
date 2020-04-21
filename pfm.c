@@ -8,6 +8,7 @@
 #include "link.h"
 #include "rxLoop.h"
 #include "txLoop.h"
+#include "distLoop.h"
 #include "workerLoop.h"
 #include "classifier.h"
 #include "kni.h"
@@ -101,15 +102,15 @@ pfm_retval_t pfm_init(int argc, char *argv[])
 
         pfm_trace_msg("Ring '%s' opened",RX_RING_NAME);
 
-	sys_info_g.dist_ptr = rte_distributor_create(DISTNAME,
+	sys_info_g.dist_ptr = rte_distributor_create(DIST_NAME,
 						    rte_socket_id(),
 						    rte_lcore_count() - 4,
 						    RTE_DIST_ALG_BURST);
-	if (NULL = sys_info_g.dist_ptr)	{
+	if (NULL == sys_info_g.dist_ptr)	{
 		pfm_log_rte_err(PFM_LOG_EMERG,
 				"rte_distributor_create(distributor=%s,socket=%d,workers=%d,RTE_DIST_ALG_BURST"
 				"Terminating",
-				DISTNAME,rte_socket_id(),rte_lcore_count()-4);
+				DIST_NAME,rte_socket_id(),rte_lcore_count()-4);
 		return PFM_FAILED;
 	}
 
@@ -140,7 +141,6 @@ pfm_retval_t pfm_start_pkt_processing(void)
 		return PFM_FAILED;
 	}
 	pfm_trace_msg("Dist thread started ");
-	cnt = 0;
 
 	for(int lc=0; lc < sys_info_g.lcore_count; lc++)
 	{

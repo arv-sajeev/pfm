@@ -14,7 +14,8 @@ SRCS-y :=	cuup.c \
 		txLoop.c \
 		kni.c \
 		pfm_ring.c \
-		classifier.c
+		classifier.c \
+		distLoop.c
 
 # Build using pkg-config variables if possible
 ifeq ($(shell pkg-config --exists libdpdk && echo 0),0)

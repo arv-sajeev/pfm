@@ -5,6 +5,7 @@
 
 
 #include "pfm.h"
+#include "pfm_log.h"
 #include "pfm_comm.h"
 #include "workerLoop.h"
 
@@ -35,7 +36,6 @@ int workerLoop( __attribute__((unused)) void *args)
 	struct rte_mbuf *rxPkts[RX_BURST_SIZE*2];
 	uint16_t nbRx;
 	uint16_t nbTx;
-	int retVal;
 	struct rte_distributor *dist = sys_info_g.dist_ptr;
 
 	pfm_trace_msg("WORKER thread started");
@@ -50,6 +50,7 @@ int workerLoop( __attribute__((unused)) void *args)
 		nbRx = rte_distributor_get_pkt(dist,
 					       rte_lcore_id(),
 					       rxPkts,
+					       rxPkts,
 					       RX_BURST_SIZE);
 					
 		if (0 >= nbRx) continue;
@@ -57,7 +58,7 @@ int workerLoop( __attribute__((unused)) void *args)
 		pfm_trace_msg("Received %d packets on lcore %d",
 			       nbRx,
 			       rte_lcore_id()
-			       };
+			       );
 
 
 		nbTx = nbRx;
@@ -70,13 +71,15 @@ int workerLoop( __attribute__((unused)) void *args)
 			pkt = rte_pktmbuf_mtod(rxPkts[i],unsigned char *);
 
 			pktLen = rxPkts[i]->pkt_len;
+			pfm_trace_pkt_hdr(pkt,
+					  pktLen,
+					  "Received on worker at lcore [%d]",
+					  rte_lcore_id());
 
-			printf("PACKET %d [",i);
-			for (j=0; j< pktLen; j++)
-			{
-				printf("%02X ",pkt[j]);
-			}
-			printf("]\n");
+			pfm_trace_pkt(pkt,
+				      pktLen,
+				      "Received on lcore [%d]",
+				      rte_lcore_id());
 
 			/* Swap MAC Address */
 			unsigned char x;
@@ -86,13 +89,11 @@ int workerLoop( __attribute__((unused)) void *args)
 				pkt[j] = pkt[j+6];
 				pkt[j+6] = x;
 			};
-                        retVal = rte_ring_enqueue(sys_info_g.tx_ring_ptr,
-						  rxPkts[i]);
-                        if (0 != retVal)
-                        {
-				pfm_log_rte_err(PFM_LOG_EMERG,
-                                	"rte_ring_enqueue() failed");
-                        }
+			pfm_trace_pkt_hdr(pkt,
+					  pktLen,
+					  "swapped MAC addresses on worker at lcore [%d]",
+					  rte_lcore_id());
+
                 }
 	}
 	return 1;
