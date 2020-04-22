@@ -34,11 +34,13 @@ void pfm_data_ind(      const uint32_t localIp,
 int workerLoop( __attribute__((unused)) void *args)
 {
 	struct rte_mbuf *rxPkts[RX_BURST_SIZE*2];
+	struct rte_mbuf *old_rxPkts[RX_BURST_SIZE*2];
 	uint16_t nbRx;
-	uint16_t nbTx;
+	uint16_t nbTx = 0;
 	struct rte_distributor *dist = sys_info_g.dist_ptr;
 
-	pfm_trace_msg("WORKER thread started");
+	pfm_trace_msg("WORKER thread started on lcore [%d]",
+		      rte_lcore_id());
 
 	while(1)
 	{
@@ -50,12 +52,12 @@ int workerLoop( __attribute__((unused)) void *args)
 		nbRx = rte_distributor_get_pkt(dist,
 					       rte_lcore_id(),
 					       rxPkts,
-					       rxPkts,
-					       RX_BURST_SIZE);
+					       old_rxPkts,
+					       nbTx);
 					
 		if (0 >= nbRx) continue;
 
-		pfm_trace_msg("Received %d packets on lcore %d",
+		pfm_trace_msg("Received %d packets on worker at  lcore %d",
 			       nbRx,
 			       rte_lcore_id()
 			       );
@@ -96,6 +98,8 @@ int workerLoop( __attribute__((unused)) void *args)
 
                 }
 	}
+	pfm_trace_msg("Exiting worker thread on lcore [%d]",
+		       rte_lcore_id());
 	return 1;
 }
 

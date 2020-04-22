@@ -13,7 +13,7 @@
 #include "classifier.h"
 #include "kni.h"
 
-pfm_bool_t	force_quit_g =  PFM_FALSE;
+volatile pfm_bool_t	force_quit_g =  PFM_FALSE;
 sys_info_t	sys_info_g =
 {
 	.lcore_count	= 0,
@@ -105,7 +105,7 @@ pfm_retval_t pfm_init(int argc, char *argv[])
 	sys_info_g.dist_ptr = rte_distributor_create(DIST_NAME,
 						    rte_socket_id(),
 						    rte_lcore_count() - 4,
-						    RTE_DIST_ALG_BURST);
+						    RTE_DIST_ALG_SINGLE);
 	if (NULL == sys_info_g.dist_ptr)	{
 		pfm_log_rte_err(PFM_LOG_EMERG,
 				"rte_distributor_create(distributor=%s,socket=%d,workers=%d,RTE_DIST_ALG_BURST"

@@ -72,7 +72,7 @@ typedef struct {
 } sys_info_t;
 
 
-extern pfm_bool_t	force_quit_g; /* all loops will use this
+extern volatile pfm_bool_t	force_quit_g; /* all loops will use this
 			varable to determin the looping need to continue
 			or not. By setting this varlbale to TRUE, all loops
 			can be terminated */

@@ -6,7 +6,7 @@ $LOCALMAC		!06-11	Src MAC Addr
 08 06			!12-13	EtherType=ARP
 !----------------ARP Request packet
 00 01			!14-15	HW Type=Ethernet
-08 00			!16-17	Protocol Type=IPV4
+08 00			!16-17	Protocol Type=IPv4
 06			!18	HW Size
 04			!19	Protocl Size
 00 01			!20-21	OpCode=Request

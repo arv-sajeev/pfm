@@ -3,7 +3,7 @@
 !----------------Ethernet header
 $REMOTEMAC		!00-05  Dst MAC Addr
 $LOCALMAC		!06-11	Src MAC Addr
-08 00			!12-13	EtherType=ICMP
+08 00			!12-13	EtherType=IPv4
 !IP Header
 45			!14    Version and Header Length
 00			!15    DSCP

@@ -1,0 +1,20 @@
+#addr.edpat;
+
+!---------------------NGu Subnet
+$LOCALMAC	=	$NGu_LOCAL_MAC;
+$LOCALIP	=	$NGu_LOCAL_IP;
+$REMOTEMAC	=	$NGu_REMOTE_MAC;
+$REMOTEIP	=	$NGu_REMOTE_IP1;
+$ETHPORT	=	$NGu_ETHPORT;
+
+@GTP;
+#gtp.edpat;
+#gtp.edpat;
+#gtp.edpat;
+#gtp.edpat;
+#gtp.edpat;
+#gtp.edpat;
+#gtp.edpat;
+#gtp.edpat;
+#gtp.edpat;
+
