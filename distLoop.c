@@ -12,57 +12,80 @@
 
 
 int distLoop(__attribute__((unused)) void * args)	{
+	
 	struct rte_ring *rx_dist_ring = sys_info_g.rx_ring_ptr;
 	struct rte_ring *dist_tx_ring = sys_info_g.tx_ring_ptr;
+	
 	struct rte_distributor *dist = sys_info_g.dist_ptr;
-	struct rte_mbuf *pkt_burst[RX_BURST_SIZE];
-	int tx_sz,rx_sz;
+	
+	struct rte_mbuf *pkt_burst[RX_BURST_SIZE],*ret_pkts[TX_BURST_SIZE];
+	
+	int tx_sz = 0,rx_sz = 0,ret_rx = 0,ret_tx = 0;
+	
 	pfm_log_msg(PFM_LOG_DEBUG,
 		    "Started distributor on lcore [%d]",
 		    rte_lcore_id());
 
-	while (PFM_TRUE != force_quit_g)	{
+	printf("Started distributor on lcore [%d]",
+		rte_lcore_id());
+
+	while (force_quit_g != PFM_TRUE)	{
+		// Get packets from the ring
+
 		rx_sz = rte_ring_dequeue_burst(rx_dist_ring,
-						(void *) pkt_burst,
-						RX_BURST_SIZE,
-						NULL);
-		if (rx_sz <= 0)	
-			continue;
-		pfm_trace_msg("Received %d packets on distributor at lcore [%d]",
-			       rx_sz,
-			       rte_lcore_id());
+					       (void *)pkt_burst,
+					       RX_BURST_SIZE,
+					       NULL);
+		if (rx_sz > 0)	{
+			pfm_trace_msg("Received %d packets from rx_loop on distLoop",
+			      	      rx_sz);
 
+			printf("Received %d packets from rx_loop on distLoop\n",
+				rx_sz);
+		}
+		// Process these packets using distributor api 
+		
 		tx_sz = rte_distributor_process(dist,
-					pkt_burst,
-					rx_sz);
+						pkt_burst,
+						rx_sz);
+		if (tx_sz > 0)	{
+			pfm_trace_msg("Transmitted %d packets from distLoop to various workerLoops",
+			      	       tx_sz);
+			printf("Transmitted %d packets from distLoop to various workerLoops\n",
+			      	tx_sz);
 
-		pfm_trace_msg("Sent %d packets to worker",tx_sz);
-			      
-
-		rx_sz = rte_distributor_returned_pkts(dist,
-						      pkt_burst,
-						      TX_BURST_SIZE);
-
-		if (rx_sz <=0)
-			continue;
-		pfm_trace_msg("Received %d packets from workers on distributor at lcore [%d]",
-			       rx_sz,
-			       rte_lcore_id());
-
-		ring_write(dist_tx_ring,
-			   pkt_burst,
-			   rx_sz);
-
-		pfm_trace_msg("Transmitted %d packets on distributor at lcore [%d]",
-			       rx_sz,
-			       rte_lcore_id());
-
-
+		}
+		
+		// Get the processed packets from workers
+		
+		ret_rx = rte_distributor_returned_pkts(dist,
+						       ret_pkts,
+						       TX_BURST_SIZE);
+		if (ret_rx > 0)	{
+			pfm_trace_msg("Received %d packets from workers on distLoop",
+				      ret_rx);
+			printf("Received %d packets from workers on distLoop\n",
+				ret_rx);
+		}
+		// Send the received packets to the txLoop
+		
+		ret_tx = rte_ring_enqueue_burst(dist_tx_ring,
+						(void *)ret_pkts,
+						ret_rx,
+						NULL);
+		if (ret_tx > 0)	{
+			pfm_trace_msg("Enqueued %d packets from distLoop to txLoop",
+				      ret_tx);
+			printf("Enqueued %d packets from distLoop to txLoop\n",
+			      	ret_tx);
+		}
 	}
 
-
-	pfm_trace_msg("exiting from distributor");
-	rte_distributor_flush(dist);
-	rte_distributor_clear_returns(dist);
-	return 0;
+	pfm_log_msg(PFM_LOG_ALERT,"Forced exit from distributor");
+	printf("Exiting distributor");
+	return 1;
 }
+
+
+
+

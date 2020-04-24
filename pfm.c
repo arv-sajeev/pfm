@@ -82,6 +82,7 @@ pfm_retval_t pfm_init(int argc, char *argv[])
 			TX_RING_NAME,TX_RING_SIZE, rte_socket_id());
 		return PFM_FAILED;
         }
+	printf("Tx Ring Ptr=%p\n",sys_info_g.tx_ring_ptr);
 
         pfm_trace_msg("Ring '%s' opened",TX_RING_NAME);
 
@@ -105,7 +106,7 @@ pfm_retval_t pfm_init(int argc, char *argv[])
 	sys_info_g.dist_ptr = rte_distributor_create(DIST_NAME,
 						    rte_socket_id(),
 						    rte_lcore_count() - 4,
-						    RTE_DIST_ALG_SINGLE);
+						    RTE_DIST_ALG_BURST);
 	if (NULL == sys_info_g.dist_ptr)	{
 		pfm_log_rte_err(PFM_LOG_EMERG,
 				"rte_distributor_create(distributor=%s,socket=%d,workers=%d,RTE_DIST_ALG_BURST"

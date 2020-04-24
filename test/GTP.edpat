@@ -8,13 +8,5 @@ $REMOTEIP	=	$NGu_REMOTE_IP1;
 $ETHPORT	=	$NGu_ETHPORT;
 
 @GTP;
-#gtp.edpat;
-#gtp.edpat;
-#gtp.edpat;
-#gtp.edpat;
-#gtp.edpat;
-#gtp.edpat;
-#gtp.edpat;
-#gtp.edpat;
-#gtp.edpat;
+#gtp_main.edpat;
 

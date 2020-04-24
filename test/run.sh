@@ -1,1 +1,1 @@
-sudo ~/edpat/edpat.exe -f -v GTP.edpat
+sudo ~/edpat/edpat.exe -v  GTP.edpat

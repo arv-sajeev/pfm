@@ -33,73 +33,83 @@ void pfm_data_ind(      const uint32_t localIp,
 
 int workerLoop( __attribute__((unused)) void *args)
 {
-	struct rte_mbuf *rxPkts[RX_BURST_SIZE*2];
-	struct rte_mbuf *old_rxPkts[RX_BURST_SIZE*2];
-	uint16_t nbRx;
-	uint16_t nbTx = 0;
+	struct rte_mbuf *rx_pkts[8];
+	struct rte_mbuf *tx_pkts[TX_BURST_SIZE];
+
+	uint16_t rx_sz = 0;
+	uint16_t tx_sz = 0;
+
 	struct rte_distributor *dist = sys_info_g.dist_ptr;
 
-	pfm_trace_msg("WORKER thread started on lcore [%d]",
+	// Clear up all the buffers initailly 
+	for (int i = 0;i < 8;i++)	{
+		rx_pkts[i] = NULL;
+	}
+
+	for (int i = 0;i < TX_BURST_SIZE;i++)	{
+		tx_pkts[i] = NULL;
+	}
+	
+	pfm_trace_msg("Started worker on lcore [%d]",
+		      rte_lcore_id());
+	printf("Started worker on lcore [%d]\n",
 		      rte_lcore_id());
 
-	while(1)
-	{
-		if (PFM_FALSE != force_quit_g)
-		{
-			pfm_trace_msg("Stopping WORKER thread");
-			return 0;
+	while (force_quit_g != PFM_TRUE)	{
+
+		// Receive packets to be processed and send back packets that have completed processing 
+		rx_sz = rte_distributor_get_pkt(dist,
+						rte_lcore_id() - 4,  // The worker id is 4 - lcoreid
+						rx_pkts,
+						tx_pkts,
+						tx_sz);
+		if (tx_sz > 0 )	{
+
+			pfm_trace_msg("Sent %d packets back to distributor from worker core [%d]",
+				      tx_sz,
+				      rte_lcore_id());
+		
+			printf("Sent %d packets back to distributor from worker core [%d]\n",
+				      tx_sz,
+				      rte_lcore_id());
 		}
-		nbRx = rte_distributor_get_pkt(dist,
-					       rte_lcore_id(),
-					       rxPkts,
-					       old_rxPkts,
-					       nbTx);
-					
-		if (0 >= nbRx) continue;
-
-		pfm_trace_msg("Received %d packets on worker at  lcore %d",
-			       nbRx,
-			       rte_lcore_id()
-			       );
 
 
-		nbTx = nbRx;
-                for(uint16_t i = 0; i < nbTx; i++)
-                {
-			unsigned char *pkt;
-			int pktLen;
-			int j;
+		if (rx_sz > 0 )	{
 
-			pkt = rte_pktmbuf_mtod(rxPkts[i],unsigned char *);
-
-			pktLen = rxPkts[i]->pkt_len;
-			pfm_trace_pkt_hdr(pkt,
-					  pktLen,
-					  "Received on worker at lcore [%d]",
-					  rte_lcore_id());
-
-			pfm_trace_pkt(pkt,
-				      pktLen,
-				      "Received on lcore [%d]",
+			pfm_trace_msg("Received %d packets from distributor on worker core [%d]",
+				      rx_sz,
 				      rte_lcore_id());
 
-			/* Swap MAC Address */
+			printf("Received %d packets from distributor on worker core [%d]\n",
+				      rx_sz,
+				      rte_lcore_id());
+		}
+
+		// Do some processing
+		tx_sz = rx_sz;
+
+		for (uint16_t i = 0;i < tx_sz;i++)	{
+			unsigned char *pkt = rte_pktmbuf_mtod(rx_pkts[i],unsigned char*);
+		       	int pkt_len = rx_pkts[i]->pkt_len;
+			pfm_trace_pkt_hdr(pkt,pkt_len,"Rx on worker [%d]",rte_lcore_id());
+			pfm_trace_pkt(pkt,pkt_len,"Rx on worker [%d]",rte_lcore_id());
+			printf("Processing packet #%d\n",i);
+
+			//Swap macs
+			
 			unsigned char x;
-			for(j=0; j < 6; j++)
-			{
+			for (uint16_t j = 0;j < 6;j++)	{
 				x = pkt[j];
 				pkt[j] = pkt[j+6];
 				pkt[j+6] = x;
-			};
-			pfm_trace_pkt_hdr(pkt,
-					  pktLen,
-					  "swapped MAC addresses on worker at lcore [%d]",
-					  rte_lcore_id());
-
-                }
+			}	
+			tx_pkts[i] = rx_pkts[i];
+		}
 	}
-	pfm_trace_msg("Exiting worker thread on lcore [%d]",
-		       rte_lcore_id());
+	pfm_log_msg(RTE_LOG_CRIT,
+		    "Exiting worker thread on lcore [%d]",
+		    rte_lcore_id());
 	return 1;
 }
 

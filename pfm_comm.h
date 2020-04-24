@@ -27,6 +27,8 @@
 #define DEFAULT_MIN_MTU_SIZE    68
 #define DEFAULT_MAX_MTU_SIZE    65535
 
+#define ARP_TABLE_SIZE 32
+
 enum {
 	LCORE_MAIN	= 0,
 	LCORE_RXLOOP	= 1,
@@ -51,6 +53,10 @@ typedef enum
 } ops_state_t;
 
 typedef unsigned char	ip_addr_t;
+
+typedef struct {
+	ip_addr_t addr_bytes[IP_ADDR_SIZE];
+} ipv4_addr_t;
 
 typedef struct {
 	int kniIdx;

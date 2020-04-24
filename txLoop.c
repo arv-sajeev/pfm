@@ -11,47 +11,65 @@
 
 int txLoop( __attribute__((unused)) void *args)
 {
-	struct rte_mbuf *txPkts[TX_BURST_SIZE*2];
-	uint16_t nbTx, nbTxOut;
-	int linkId;
+	struct rte_mbuf *tx_pkts[TX_BURST_SIZE];
+	uint16_t rx_sz,tx_sz;
+	int link_id;
 	pfm_trace_msg("TX thread started");
 
-	while(1)
+	while(PFM_TRUE != force_quit_g)
 	{
-		if (PFM_FALSE != force_quit_g)
+		rx_sz = KniRead(tx_pkts,TX_BURST_SIZE,&link_id);
+
+		if (0 >= rx_sz)
 		{
-			pfm_trace_msg("Stopping TX thread");
-			return 0;
-		}
-	
-		nbTx = KniRead(txPkts,TX_BURST_SIZE,&linkId);
-		if (0 >= nbTx)
-		{
-			nbTx = rte_ring_dequeue_burst(
+			rx_sz = rte_ring_dequeue_burst(
 					sys_info_g.tx_ring_ptr,
-					(void **)txPkts,
+					(void **)tx_pkts,
 					TX_BURST_SIZE,
 					NULL);
-			linkId=0;
+			if (rx_sz >0){
+				pfm_trace_msg("%d packets from distLoop",
+					      rx_sz);
+				printf("%d packets from distLoop\n",
+				       rx_sz);
+				link_id = 0;
+			}
 		}
-		if (0 >= nbTx) continue;
+
+		else {
+			pfm_trace_msg("%d packets from KNI",
+				      rx_sz);
+
+			printf("%d packets from KNI\n",
+				      rx_sz);
+		}
+
+		if (0 >= rx_sz) continue;
 
 
-		nbTxOut = rte_eth_tx_burst(	linkId, 
-						0, // only once queue
-						txPkts,
-						nbTx);
-//printf("Tx %d->%d\n",nbTx,nbTxOut);
+		tx_sz = rte_eth_tx_burst(link_id,0,tx_pkts,rx_sz);
+		pfm_trace_msg("%d packets sent to link :: %d",
+			      tx_sz,
+		              link_id);
 
-		if (nbTxOut < nbTx)
+		printf("%d packets sent to link :: %d\n",
+			tx_sz,
+			link_id);
+
+		if (tx_sz < rx_sz)
 		{
 			/* free buffers of the droped Pkts */
-			for (; nbTxOut < nbTx; nbTxOut++)
+			pfm_trace_msg("Dropping packets from the txLoop");
+			printf("Dropping packets from the txLoop\n");
+			for (; tx_sz < rx_sz; tx_sz++)
 			{
-				rte_pktmbuf_free(txPkts[nbTxOut]);
+				rte_pktmbuf_free(tx_pkts[tx_sz]);
 			}
 		}
 	}
+
+	pfm_trace_msg("Exiting tx thread on lcore [%d]",
+		       rte_lcore_id());
 	return 1;
 }
 

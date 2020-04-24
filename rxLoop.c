@@ -16,8 +16,10 @@ int rxLoop( __attribute__((unused)) void *args)
 	uint16_t nbRx;
 	uint16_t linkId;
 
-	pfm_trace_msg("RX thread started");
-
+	pfm_trace_msg("rxLoop launced on lcore [%d]",
+			rte_lcore_id());
+	printf("rxPkts launched on lcore [%d]\n",
+		rte_lcore_id());
 	while(1)
 	{
 		if (PFM_FALSE != force_quit_g)

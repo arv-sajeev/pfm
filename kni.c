@@ -592,7 +592,7 @@ int KniRead(	struct rte_mbuf *pktBurst[],
                 /* if a bust is received, retrun the funtion*/
                 if (0 < pktsRecvd)
                 {
-			printf("KNI Tx. %d Pkts on Link=%d\n",pktsRecvd,*linkId);
+			//printf("KNI Tx. %d Pkts on Link=%d\n",pktsRecvd,*linkId);
                         return pktsRecvd;
                 }
 

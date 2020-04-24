@@ -65,8 +65,8 @@ $(error This application can only operate in a linux environment, \
 please change the definition of the RTE_TARGET environment variable)
 endif
 
-CFLAGS += -O3 -g -DTRACE  -DCONSLOG
-#CFLAGS += -O3 -g -DTRACE  
+#CFLAGS += -O3 -g -DTRACE  -DCONSLOG
+CFLAGS += -O3 -g -DTRACE  
 CFLAGS += -DALLOW_EXPERIMENTAL_API
 CFLAGS += $(WERROR_FLAGS)
 
