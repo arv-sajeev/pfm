@@ -9,15 +9,15 @@
 #include "pfm_rx_loop.h"
 #include "pfm_tx_loop.h"
 #include "dist_loop.h"
-#include "worker_loop.h"
-#include "classifier.h"
-#include "kni.h"
+#include "pfm_worker_loop.h"
+#include "pfm_classifier.h"
+#include "pfm_kni.h"
 
 volatile pfm_bool_t	force_quit_g =  PFM_FALSE;
 sys_info_t	sys_info_g =
 {
 	.lcore_count	= 0,
-	.kni_ptr		= NULL,
+	.kni_ptr	= NULL,
 	.local_ip_count	= 0,
         .mbuf_pool	= NULL,
         .rx_ring_ptr	= NULL,
@@ -125,7 +125,7 @@ pfm_retval_t pfm_start_pkt_processing(void)
 	int ret;
 	int worker_count=0;
 
-        ret = rte_eal_remote_launch(txLoop, NULL, LCORE_TXLOOP);
+        ret = rte_eal_remote_launch(tx_loop, NULL, LCORE_TXLOOP);
 	if (0 != ret)
         {
                 pfm_log_rte_err(PFM_LOG_EMERG,
@@ -134,7 +134,7 @@ pfm_retval_t pfm_start_pkt_processing(void)
         }
         pfm_trace_msg("TX thread started");
 	
-	ret = rte_eal_remote_launch(distLoop,NULL,LCORE_DISTRIBUTOR);
+	ret = rte_eal_remote_launch(dist_loop,NULL,LCORE_DISTRIBUTOR);
 	if (0 != ret)	{
 
 		pfm_log_rte_err(PFM_LOG_EMERG,

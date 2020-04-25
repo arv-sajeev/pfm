@@ -6,7 +6,7 @@
 
 #include "pfm.h"
 #include "pfm_comm.h"
-#include "link.h"
+#include "pfm_link.h"
 
 
 #define MAX_LINK_COUNT  5
@@ -14,28 +14,28 @@
 #define MAX_LINK_NAME_LEN       15
 
 typedef struct {
-	uint16_t	linkId;
+	uint16_t	link_id;
 	char	name[MAX_LINK_NAME_LEN+1];
 	uint16_t mtu;
-	uint16_t minMtu;
-	uint16_t maxMtu;
-	unsigned char   macAddr[MAC_ADDR_SIZE];
-	ops_state_t      opsState;
-} LinkInfo_t;
+	uint16_t min_mtu;
+	uint16_t max_mtu;
+	unsigned char   mac_addr[MAC_ADDR_SIZE];
+	ops_state_t      ops_state;
+} link_info_t;
 
-static int 		LinkCount;
-static LinkInfo_t	LinkInfoList[MAX_LINK_COUNT];
-static pthread_t	LinkMonThreadId = 0;
-static const unsigned char defaultMacAddr[MAC_ADDR_SIZE] =
+static int 		link_count;
+static link_info_t	link_info_list[MAX_LINK_COUNT];
+static pthread_t	link_mon_thread_id = 0;
+static const unsigned char default_mac_addr[MAC_ADDR_SIZE] =
         { 0x06, 0x0A0, 0xB0, 0xC0, 0xD0, 0xE0 };
 
 /**************************
  *
- * linkStateMonitorPThreadFunc()
+ * link_statemonitor_pthread_func()
  *
  * function to monitor link operational state.  This function is run
  * as a child pthread. When  state change is detected, it will invoke
- * the call back funtion link_state_change_call_back() which need to be 
+ * the call back funtion link_state_change_callback() which need to be 
  * implemeted by appliacion.
  *
  * Args: 
@@ -43,11 +43,11 @@ static const unsigned char defaultMacAddr[MAC_ADDR_SIZE] =
  *
  *****/
 
-static void *linkStateMonitorPThreadFunc(__attribute__((unused)) void *arg)
+static void *link_statemonitor_pthread_func(__attribute__((unused)) void *arg)
 {
 	int i;
-	ops_state_t currState;
-	struct rte_eth_link linkInfo;
+	ops_state_t curr_state;
+	struct rte_eth_link link_info;
 
         rte_delay_ms(1000);
 	pfm_trace_msg( "Link mointoring STARTED");
@@ -57,31 +57,31 @@ static void *linkStateMonitorPThreadFunc(__attribute__((unused)) void *arg)
                 rte_delay_ms(500); // do it every 0.5 seconds
 		
 		/* check state of all currently configured links */
-		for(i=0; i < LinkCount; i++)
+		for(i=0; i < link_count; i++)
 		{
 			rte_eth_link_get_nowait(
-				LinkInfoList[i].linkId, &linkInfo);
-			if (linkInfo.link_status == ETH_LINK_UP)
+				link_info_list[i].link_id, &link_info);
+			if (link_info.link_status == ETH_LINK_UP)
 			{
-				currState = OPSSTATE_ENABLED;
+				curr_state = OPSSTATE_ENABLED;
 				
 			}
 			else
 			{
-				currState = OPSSTATE_DISABLED;
+				curr_state = OPSSTATE_DISABLED;
 			}
-			if (currState != LinkInfoList[i].opsState)
+			if (curr_state != link_info_list[i].ops_state)
 			{
 				/* ops state change detected for this link
 				   invoke callback function */
-				LinkInfoList[i].opsState = currState;
-				link_state_change_call_back(
-					LinkInfoList[i].linkId,currState);
+				link_info_list[i].ops_state = curr_state;
+				link_state_change_callback(
+					link_info_list[i].link_id,curr_state);
 				pfm_trace_msg(
 					"Link '%s(%d)' Ops state chaged to %s",
-					LinkInfoList[i].name,
-					LinkInfoList[i].linkId,
-					((currState == OPSSTATE_ENABLED)?
+					link_info_list[i].name,
+					link_info_list[i].link_id,
+					((curr_state == OPSSTATE_ENABLED)?
 						"ENABLED" : "DISABLED"));
 			}
 		}
@@ -90,254 +90,254 @@ static void *linkStateMonitorPThreadFunc(__attribute__((unused)) void *arg)
 	return NULL;
 }
 
-static pfm_retval_t linkStart(int linkId)
+static pfm_retval_t link_start(int link_id)
 {
-	struct rte_eth_dev_info devInfo;
-	struct rte_eth_conf portConf;
-	struct rte_eth_txconf txConf;
+	struct rte_eth_dev_info dev_info;
+	struct rte_eth_conf port_conf;
+	struct rte_eth_txconf tx_conf;
 	struct rte_ether_addr addr;
-	LinkInfo_t *linkInfoPtr;
+	link_info_t *info_ptr;
 
-        uint16_t nbRxd;
-        uint16_t nbTxd;
+        uint16_t rx_sz;
+        uint16_t tx_sz;
 	uint16_t mtu;
 
 	int idx;
 	int ret;
 	
-	for (idx=0; idx <= LinkCount;idx++)
+	for (idx=0; idx <= link_count;idx++)
 	{
-		if(LinkInfoList[idx].linkId == linkId)
+		if(link_info_list[idx].link_id == link_id)
 		{
 			break;
 		}
 	}
-	if (idx > LinkCount)
+	if (idx > link_count)
 	{
 		pfm_log_rte_err(PFM_LOG_ERR,
-			"Invalid linkId=%d passed to linkStart(). "
-			"Need to be less than or equal to LinkCount=%d.",
-			linkId,LinkCount);
+			"Invalid link_id=%d passed to link_start(). "
+			"Need to be less than or equal to link_count=%d.",
+			link_id,link_count);
 		return PFM_FAILED;
 	}
 
-	linkInfoPtr = &LinkInfoList[idx];
+	info_ptr = &link_info_list[idx];
 
-	ret = rte_eth_dev_is_valid_port(linkId);
+	ret = rte_eth_dev_is_valid_port(link_id);
 	if (1 != ret)
 	{
 		pfm_log_rte_err(PFM_LOG_ERR,
 			"rte_eth_dev_is_valid_port(link='%s(%d)') failed. "
 			"port is not a valid port.",
-			linkInfoPtr->name,
-			linkId);
+			info_ptr->name,
+			link_id);
 		return PFM_FAILED;
 	}
 	
-	ret = rte_eth_dev_get_mtu(linkId, &mtu);
+	ret = rte_eth_dev_get_mtu(link_id, &mtu);
 	if (0 != ret)
 	{
 		mtu = DEFAULT_MTU_SIZE;
 		pfm_log_rte_err(PFM_LOG_ERR,
 			"rte_eth_dev_get_mtu(link='%s(%d)' failed. "
 			"MTU=%d is assumed",
-			linkInfoPtr->name,
-			linkId);
+			info_ptr->name,
+			link_id);
 	}
-	linkInfoPtr->mtu = mtu;
+	info_ptr->mtu = mtu;
 
-	ret = rte_eth_dev_info_get(linkId, &devInfo);
+	ret = rte_eth_dev_info_get(link_id, &dev_info);
 	if (0 != ret)
 	{
 		
 		pfm_log_rte_err(PFM_LOG_ERR,
 			"rte_eth_dev_info_get(link='%s(%d)') failed. "
-			"minMtu=%d,maxMtu=%d are assumed.",
-			linkInfoPtr->name,
-			linkId, 
+			"min_mtu=%d,max_mtu=%d are assumed.",
+			info_ptr->name,
+			link_id, 
 			DEFAULT_MIN_MTU_SIZE,DEFAULT_MAX_MTU_SIZE);
-		linkInfoPtr->minMtu = DEFAULT_MIN_MTU_SIZE;
-		linkInfoPtr->maxMtu = DEFAULT_MAX_MTU_SIZE;
+		info_ptr->min_mtu = DEFAULT_MIN_MTU_SIZE;
+		info_ptr->max_mtu = DEFAULT_MAX_MTU_SIZE;
 	}
 	else
 	{
-		linkInfoPtr->minMtu = devInfo.min_mtu;
-		linkInfoPtr->maxMtu = devInfo.max_mtu;
+		info_ptr->min_mtu = dev_info.min_mtu;
+		info_ptr->max_mtu = dev_info.max_mtu;
 	}
 
 	/* Read the port MAC address. */
-	ret = rte_eth_macaddr_get(linkId, &addr);
+	ret = rte_eth_macaddr_get(link_id, &addr);
 	if (0 != ret)
 	{
 		pfm_log_rte_err(PFM_LOG_WARNING,
 			"rte_eth_macaddr_get(link='%s(%d)')failed. "
 			"A non-zero MAC is assigned automaticaly",
-			linkInfoPtr->name,
-			linkId);
+			info_ptr->name,
+			link_id);
 		/* Assign a non-zero MAC address */
-		memcpy(addr.addr_bytes,defaultMacAddr,MAC_ADDR_SIZE);
-		addr.addr_bytes[5] |= linkId;
-		ret = rte_eth_dev_default_mac_addr_set(linkId,
-		     (struct rte_ether_addr *)linkInfoPtr->macAddr);
+		memcpy(addr.addr_bytes,default_mac_addr,MAC_ADDR_SIZE);
+		addr.addr_bytes[5] |= link_id;
+		ret = rte_eth_dev_default_mac_addr_set(link_id,
+		     (struct rte_ether_addr *)info_ptr->mac_addr);
 		if (0 != ret)
 		{
 			pfm_log_rte_err(PFM_LOG_WARNING,
 				"rte_eth_dev_default_mac_addr_set("
 				"link='%s(%d)') failed",
-				linkInfoPtr->name,
-				linkId);
+				info_ptr->name,
+				link_id);
 		}
 	}
 
-	memcpy(linkInfoPtr->macAddr,addr.addr_bytes,MAC_ADDR_SIZE);
+	memcpy(info_ptr->mac_addr,addr.addr_bytes,MAC_ADDR_SIZE);
 
-        memset(&portConf,0,sizeof(struct rte_eth_conf));
-        portConf.rxmode.max_rx_pkt_len = RTE_ETHER_MAX_LEN;
-        if (devInfo.tx_offload_capa & DEV_TX_OFFLOAD_MBUF_FAST_FREE)
+        memset(&port_conf,0,sizeof(struct rte_eth_conf));
+        port_conf.rxmode.max_rx_pkt_len = RTE_ETHER_MAX_LEN;
+        if (dev_info.tx_offload_capa & DEV_TX_OFFLOAD_MBUF_FAST_FREE)
         {
-                portConf.txmode.offloads |= DEV_TX_OFFLOAD_MBUF_FAST_FREE;
+                port_conf.txmode.offloads |= DEV_TX_OFFLOAD_MBUF_FAST_FREE;
         }
-        portConf.rx_adv_conf.rss_conf.rss_hf &= devInfo.flow_type_rss_offloads;
+        port_conf.rx_adv_conf.rss_conf.rss_hf &= dev_info.flow_type_rss_offloads;
 
-        ret = rte_eth_dev_configure(linkId, 1, 1, &portConf);
+        ret = rte_eth_dev_configure(link_id, 1, 1, &port_conf);
         if (ret != 0)
         {
 		pfm_log_rte_err(PFM_LOG_ERR,
 			"rte_eth_dev_configure(link='%s(%d)',1,1) failed\n",
-			linkInfoPtr->name, linkId);
+			info_ptr->name, link_id);
 		return PFM_FAILED;
         }
 
 
-	nbRxd = RX_RING_SIZE;
-	nbTxd = TX_RING_SIZE;
-	ret = rte_eth_dev_adjust_nb_rx_tx_desc(linkId, &nbRxd, &nbTxd);
+	rx_sz = RX_RING_SIZE;
+	tx_sz = TX_RING_SIZE;
+	ret = rte_eth_dev_adjust_nb_rx_tx_desc(link_id, &rx_sz, &tx_sz);
 	if (ret != 0)
 	{
 		pfm_log_rte_err(PFM_LOG_ERR,
 			"rte_eth_dev_adjust_nb_rx_tx_desc('LinkId='%s(%d)',"
-			"nbRxd=%d, nbTxd=%d) failed\n",
-			linkInfoPtr->name, 
-                        linkId,nbRxd,nbTxd);
+			"rx_sz=%d, tx_sz=%d) failed\n",
+			info_ptr->name, 
+                        link_id,rx_sz,tx_sz);
 		return PFM_FAILED;
 	}
 
-	ret = rte_eth_rx_queue_setup(linkId, 0, nbRxd,
-				rte_eth_dev_socket_id(linkId),
+	ret = rte_eth_rx_queue_setup(link_id, 0, rx_sz,
+				rte_eth_dev_socket_id(link_id),
 				NULL, sys_info_g.mbuf_pool);
 	if (0 != ret)
 	{
 		pfm_log_rte_err(PFM_LOG_ERR,
 			"rte_eth_rx_queue_setup(link='%s(%d)',"
-			"0,nbRxd=%d,sockId=%d,NULL,pool=%p) failed",
-			linkInfoPtr->name, 
-			linkId,nbRxd,rte_eth_dev_socket_id(linkId),
+			"0,rx_sz=%d,sockId=%d,NULL,pool=%p) failed",
+			info_ptr->name, 
+			link_id,rx_sz,rte_eth_dev_socket_id(link_id),
 			sys_info_g.mbuf_pool);
 		return PFM_FAILED;
 	}
 
-	txConf = devInfo.default_txconf;
-	txConf.offloads = portConf.txmode.offloads;
-	ret = rte_eth_tx_queue_setup(	linkId, 0, nbTxd,
-                                	rte_eth_dev_socket_id(linkId),
-					&txConf);
+	tx_conf = dev_info.default_txconf;
+	tx_conf.offloads = port_conf.txmode.offloads;
+	ret = rte_eth_tx_queue_setup(	link_id, 0, tx_sz,
+                                	rte_eth_dev_socket_id(link_id),
+					&tx_conf);
 	if (ret < 0)
 	{
 		pfm_log_rte_err(PFM_LOG_ERR,
 			"rte_eth_tx_queue_setup(link='%s(%d)',0,"
-			"nbTxd=%d,sockId=%d,txConf=%p",
-			linkInfoPtr->name, 
-			linkId,nbTxd,
-			&txConf);
+			"tx_sz=%d,sockId=%d,tx_conf=%p",
+			info_ptr->name, 
+			link_id,tx_sz,
+			&tx_conf);
 		return PFM_FAILED;
 	}
         /* Start the Ethernet port. */
-        ret = rte_eth_dev_start(linkId);
+        ret = rte_eth_dev_start(link_id);
         if (0 != ret)
         {
 		pfm_log_rte_err(PFM_LOG_ERR,
                 	"rte_eth_dev_start(link='%s(%d)') failed",
-			linkInfoPtr->name, linkId);
+			info_ptr->name, link_id);
 		return PFM_FAILED;
         }
 #ifdef PROMISCUOUS_MODE
 
         /* Enable RX in promiscuous mode for the Ethernet device. */
-        ret = rte_eth_promiscuous_enable(linkId);
+        ret = rte_eth_promiscuous_enable(link_id);
         if (0 != ret)
         {
 		pfm_log_rte_err(PFM_LOG_ERR,
                 	"rte_eth_promiscuous_enable('link=%s(%d)') failed",
-			linkInfoPtr->name, linkId);
+			info_ptr->name, link_id);
 		return PFM_FAILED;
         }
         pfm_trace_msg("Promiscuous mode enabled for Link='%s(%d)'",
-			linkInfoPtr->name, linkId);
+			info_ptr->name, link_id);
 #endif
 
         pfm_trace_msg("Link '%s(%d)' opened successfuly",
-			linkInfoPtr->name, linkId);
+			info_ptr->name, link_id);
 
 	pfm_trace_msg("Created link successfully. "
-		"linkId=%d,Name=%s,"
-		"mtu=%d,minMtu=%d,maxMtu=%d,"
+		"link_id=%d,Name=%s,"
+		"mtu=%d,min_mtu=%d,max_mtu=%d,"
 		"MAC=%02X:%02X:%02X:%02X:%02X:%02X",
-		linkId,
-		linkInfoPtr->name,
-		linkInfoPtr->mtu,
-		linkInfoPtr->minMtu,
-		linkInfoPtr->maxMtu,
-		linkInfoPtr->macAddr[0],
-		linkInfoPtr->macAddr[1],
-		linkInfoPtr->macAddr[2],
-		linkInfoPtr->macAddr[3],
-		linkInfoPtr->macAddr[4],
-		linkInfoPtr->macAddr[5]);
+		link_id,
+		info_ptr->name,
+		info_ptr->mtu,
+		info_ptr->min_mtu,
+		info_ptr->max_mtu,
+		info_ptr->mac_addr[0],
+		info_ptr->mac_addr[1],
+		info_ptr->mac_addr[2],
+		info_ptr->mac_addr[3],
+		info_ptr->mac_addr[4],
+		info_ptr->mac_addr[5]);
 	return PFM_SUCCESS;
 }
 
-static pfm_retval_t linkStop(int linkId)
+static pfm_retval_t link_stop(int link_id)
 {
 	int ret;
 	int idx;
-	char *linkName;
+	char *link_name;
 
-	for (idx=0; idx < LinkCount;idx++)
+	for (idx=0; idx < link_count;idx++)
 	{
-		if(LinkInfoList[idx].linkId == linkId)
+		if(link_info_list[idx].link_id == link_id)
 		{
 			break;
 		}
 	}
 
-        if (idx >= LinkCount)
+        if (idx >= link_count)
         {
                 pfm_log_rte_err(PFM_LOG_ERR,
-                        "Invalid linkId=%d passed to linkStop(). "
-                        "Need to be less than or equal to LinkCount=%d.",
-                        linkId,LinkCount);
+                        "Invalid link_id=%d passed to link_stop(). "
+                        "Need to be less than or equal to link_count=%d.",
+                        link_id,link_count);
                 return PFM_FAILED;
         }
 
-	linkName = LinkInfoList[idx].name;
+	link_name = link_info_list[idx].name;
 
 	/* free mbufs currently cached by the driver */
-	ret = rte_eth_tx_done_cleanup(linkId,0,0); //FAIL
+	ret = rte_eth_tx_done_cleanup(link_id,0,0); //FAIL
 	if( 0 > ret)
 	{
 		pfm_log_rte_err(PFM_LOG_WARNING,
 			"rte_eth_tx_done_cleanup('%s(%d)',0,0) "
 			"failed with retval=%d",
-			linkName,linkId,ret);
+			link_name,link_id,ret);
 	}
 
-	ret = rte_eth_dev_set_link_down(linkId); 
+	ret = rte_eth_dev_set_link_down(link_id); 
 	if( 0 != ret)
 	{
 		pfm_log_rte_err(PFM_LOG_WARNING,
 			"rte_eth_dev_set_link_down('%s(%d)',0) failed "
 			"with retval=%d", 
-			linkName,linkId,ret);
+			link_name,link_id,ret);
 	}
 /*
  Note: 
@@ -351,37 +351,37 @@ static pfm_retval_t linkStop(int linkId)
      This implemenation need to be check on real hardware
 
      
-	ret = rte_eth_dev_tx_queue_stop(linkId,0); 
+	ret = rte_eth_dev_tx_queue_stop(link_id,0); 
 	if( 0 != ret)
 	{
 		pfm_log_rte_err(PFM_LOG_WARNING,
 			"rte_eth_dev_tx_queue_stop('%s(%d)',0) failed "
 			"with retval=%d", 
-			linkName,linkId,ret);
+			link_name,link_id,ret);
 	}
-	ret = rte_eth_dev_rx_queue_stop(linkId,0); 
+	ret = rte_eth_dev_rx_queue_stop(link_id,0); 
 	if( 0 != ret)
 	{
 		pfm_log_rte_err(PFM_LOG_WARNING,
 			"rte_eth_dev_rx_queue_stop('%s(%d)',0) failed"
 			"with retval=%d", 
-			linkName,linkId,ret);
+			link_name,link_id,ret);
 	}
-	rte_eth_dev_stop(linkId);
+	rte_eth_dev_stop(link_id);
 
-	//rte_eth_dev_close (linkId);
-	ret = rte_eth_dev_reset(linkId); 
+	//rte_eth_dev_close (link_id);
+	ret = rte_eth_dev_reset(link_id); 
 	if( 0 != ret)
 	{
 		pfm_log_rte_err(PFM_LOG_WARNING,
 			"rte_eth_dev_reset('%s(%d)',0) failed"
 			"with retval=%d", 
-			linkName,linkId,ret);
+			link_name,link_id,ret);
 	}
 ********/
 
 	pfm_trace_msg("Link '%s(%d)' closed successfuly.",
-			linkName,linkId);
+			link_name,link_id);
 
 	return PFM_SUCCESS;
 }
@@ -392,70 +392,70 @@ static pfm_retval_t linkStop(int linkId)
  * Open ethernet link with given name.
  *
  * Args:
- *     linkName - input. Name of the link to be oppened
+ *     link_name - input. Name of the link to be oppened
  *
  * Return:
- *	>= 0	- link opened successflly. Return linkId of the oped link. 
+ *	>= 0	- link opened successflly. Return link_id of the oped link. 
  *	< 0	- failed to open link
  *
  *****/
-int pfm_link_open(const char *linkName)
+int pfm_link_open(const char *link_name)
 {
-	uint16_t linkId;
+	uint16_t link_id;
 
-	pfm_retval_t retVal;
+	pfm_retval_t ret_val;
 	int ret;
 	int i;
 	
-	for (i=0; i < LinkCount; i++)
+	for (i=0; i < link_count; i++)
 	{
-		ret = strcmp(LinkInfoList[i].name,linkName);
+		ret = strcmp(link_info_list[i].name,link_name);
 		if (0 == ret)
 		{
 			pfm_trace_msg("Link '%s' is already open. "
 				"No need to open it again. "
 				"Re-using it.",
-				linkName);
-			return LinkInfoList[i].linkId;
+				link_name);
+			return link_info_list[i].link_id;
 		}
 	}
 
-	if (MAX_LINK_COUNT <= LinkCount)
+	if (MAX_LINK_COUNT <= link_count)
 	{
 		pfm_trace_msg("Can't open link '%s'. "
 				"Max links %d alread opened. ",
-				linkName,MAX_LINK_COUNT);
+				link_name,MAX_LINK_COUNT);
 		return (-1);
 	}
 
-	ret = rte_eth_dev_get_port_by_name( linkName, &linkId);
+	ret = rte_eth_dev_get_port_by_name( link_name, &link_id);
         if (0 != ret)
         {
 		pfm_log_rte_err(PFM_LOG_ERR,
 			"rte_eth_dev_get_port_by_name(link='%s') failed. "
 			"link with given name may not exit.",
-			linkName);
+			link_name);
                 return (-2);
         }
 
-	LinkInfoList[LinkCount].linkId = linkId;
-	strncpy(LinkInfoList[LinkCount].name,linkName,MAX_LINK_NAME_LEN);
-	LinkInfoList[LinkCount].name[MAX_LINK_NAME_LEN]=0;
+	link_info_list[link_count].link_id = link_id;
+	strncpy(link_info_list[link_count].name,link_name,MAX_LINK_NAME_LEN);
+	link_info_list[link_count].name[MAX_LINK_NAME_LEN]=0;
 
-	retVal = linkStart(LinkCount);
-	if (PFM_SUCCESS != retVal)
+	ret_val = link_start(link_count);
+	if (PFM_SUCCESS != ret_val)
 	{
 		pfm_log_msg(PFM_LOG_ERR,
-			"linkStart(link='%s') failed. ",
-			linkName);
+			"link_start(link='%s') failed. ",
+			link_name);
                 return (-3);
 	}
 
-	if (0 == LinkMonThreadId)
+	if (0 == link_mon_thread_id)
 	{
-		ret = rte_ctrl_thread_create(&LinkMonThreadId,
+		ret = rte_ctrl_thread_create(&link_mon_thread_id,
 				"Link Monitor thread", NULL,
-				linkStateMonitorPThreadFunc, NULL);
+				link_statemonitor_pthread_func, NULL);
 		if (0 != ret)
 		{
 			pfm_log_rte_err(PFM_LOG_ERR,
@@ -463,8 +463,8 @@ int pfm_link_open(const char *linkName)
 		}
 	}
 
-	LinkCount++;
-        return linkId;
+	link_count++;
+        return link_id;
 
 }
 
@@ -477,29 +477,29 @@ int pfm_link_open(const char *linkName)
  * pfm_link_open()
  *
  * Args:
- *     linkName - input. Name of the link to be closed
+ *     link_name - input. Name of the link to be closed
  *
  * Return:
  *	None
  *
  *****/
-void pfm_link_close(const char *linkName)
+void pfm_link_close(const char *link_name)
 {
 	int ret;
-	pfm_retval_t	retVal;
+	pfm_retval_t	ret_val;
 
 	int i;
-	for (i=0; i < LinkCount; i++)
+	for (i=0; i < link_count; i++)
 	{
-		ret = strcmp(LinkInfoList[i].name,linkName);
+		ret = strcmp(link_info_list[i].name,link_name);
 		if (0 == ret)
 		{
-			retVal = linkStop(LinkInfoList[i].linkId);
-			if (PFM_SUCCESS != retVal)
+			ret_val = link_stop(link_info_list[i].link_id);
+			if (PFM_SUCCESS != ret_val)
 			{
 				pfm_log_msg(PFM_LOG_WARNING,
-					"linkStop(linkId=%d) faile",
-					LinkInfoList[i].linkId);
+					"link_stop(link_id=%d) faile",
+					link_info_list[i].link_id);
 			}
 			return;
 		}
@@ -507,21 +507,21 @@ void pfm_link_close(const char *linkName)
 	pfm_log_msg(PFM_LOG_WARNING,
                	"Trying to closelink='%s'which is not opened or does not exist."
 		"Request discarded",
-		linkName);
+		link_name);
         return;
 }
 
 /************
  *
- * LinkRead()
+ * link_read()
  *
  * Read packt bust from one of the open link. Link are checked for 
  * packet bust in round robin method.
  *
  * Args:
- *	rxPkt		- input/output. Array of pointes were the received
+ *	rx_pkts		- input/output. Array of pointes were the received
  *			  packtes will be returend 
- *	burstSize	- input. size of rxPkt[] arrary. i.e, how many
+ *	burst_size	- input. size of rxPkt[] arrary. i.e, how many
  *			  packes can be receved at a time
  *	port		- output. how many packets are reced in teh burst
  *
@@ -534,44 +534,44 @@ void pfm_link_close(const char *linkName)
  *
  ****/	
 
-int LinkRead(struct rte_mbuf *rxPkts[],uint16_t burstSize,uint16_t *port)
+int link_read(struct rte_mbuf *rx_pkts[],uint16_t burst_size,uint16_t *port)
 {
-	static uint16_t linkIdxToReadNext = 0;
-	int linkIdxStart;
-	int nbRx;
+	static uint16_t next_read = 0;
+	int start;
+	int rx_sz;
 
 	/* Read links in round robin */
-	linkIdxStart = linkIdxToReadNext;
+	start = next_read;
 	do
 	{
-		nbRx = 0;
+		rx_sz = 0;
 
 		/* check the link only if the link is in enabled state*/
 		if (OPSSTATE_ENABLED ==
-			LinkInfoList[linkIdxToReadNext].opsState)
+			link_info_list[next_read].ops_state)
 		{
-			nbRx = rte_eth_rx_burst(
-					LinkInfoList[linkIdxToReadNext].linkId,
-                                        0, rxPkts, burstSize);
+			rx_sz = rte_eth_rx_burst(
+					link_info_list[next_read].link_id,
+                                        0, rx_pkts, burst_size);
 
-			/* store the linkId in output argument */
-			*port = LinkInfoList[linkIdxToReadNext].linkId;
+			/* store the link_id in output argument */
+			*port = link_info_list[next_read].link_id;
 		}
 
 		/* Next iteration shold check next link in round robin.*/
-		linkIdxToReadNext++;
-		if (linkIdxToReadNext >= LinkCount)
+		next_read++;
+		if (next_read >= link_count)
 		{
 			// wrap around
-			linkIdxToReadNext = 0;
+			next_read = 0;
 		}
 
 		/* if a bust is received, retrun the funtion*/
-		if (0 < nbRx)
+		if (0 < rx_sz)
 		{
-			return nbRx;
+			return rx_sz;
 		}
-	} while (linkIdxToReadNext != linkIdxStart);
+	} while (next_read != start);
 
 	/* non of the enabled links have packets. hence return 0 */
 	return 0;
@@ -580,19 +580,19 @@ int LinkRead(struct rte_mbuf *rxPkts[],uint16_t burstSize,uint16_t *port)
 
 /****************
  *
- * LinkStateChange()
+ * link_state_change()
  *
  * Change operational state of a link.
  *
  * Args:
- *	linkId	- input. Id of the link for which state need to be chaged
+ *	link_id	- input. Id of the link for which state need to be chaged
  *	disiredState - input. new state
  *
  * Return: None
  *
  ***********/
 
-void LinkStateChange(const int linkId,const ops_state_t desiredState)
+void link_state_change(const int link_id,const ops_state_t desired_state)
 {
 	int ret;
 
@@ -601,49 +601,49 @@ void LinkStateChange(const int linkId,const ops_state_t desiredState)
    is enabled, it will reset the link which impact the other KNI which
    need to be avoided. Need more investigation to resolve this issue 
 
-	ops_state_t currState;
-	struct rte_eth_link linkInfo;
+	ops_state_t curr_state;
+	struct rte_eth_link link_info;
 
-	rte_eth_link_get_nowait(linkId, &linkInfo);
-	if (linkInfo.link_status == ETH_LINK_UP)
+	rte_eth_link_get_nowait(link_id, &link_info);
+	if (link_info.link_status == ETH_LINK_UP)
 	{
-		currState = OPSSTATE_ENABLED;
+		curr_state = OPSSTATE_ENABLED;
  	}
 	else
 	{
-		currState = OPSSTATE_DISABLED;
+		curr_state = OPSSTATE_DISABLED;
 	}
 
-	if ( currState == desiredState)
+	if ( curr_state == desired_state)
 	{
 		pfm_trace_msg("LinkId=%d state is alreaady in %s. "
 			"No change needed",
-			linkId, 
-		    ((OPSSTATE_DISABLED == desiredState) ? "DOWN" : "UP"));
+			link_id, 
+		    ((OPSSTATE_DISABLED == desired_state) ? "DOWN" : "UP"));
 		return;
 	}
 */
 
-	ret = rte_eth_dev_is_valid_port(linkId);
+	ret = rte_eth_dev_is_valid_port(link_id);
 	if (0 == ret)
 	{
-		pfm_log_rte_err(PFM_LOG_ERR, "Invalid linkId=%d passed",
-				linkId);
+		pfm_log_rte_err(PFM_LOG_ERR, "Invalid link_id=%d passed",
+				link_id);
 		return;
 	}
 
-	if (OPSSTATE_ENABLED == desiredState)
+	if (OPSSTATE_ENABLED == desired_state)
 	{
-		rte_eth_dev_stop(linkId);
-                rte_eth_dev_start(linkId);
+		rte_eth_dev_stop(link_id);
+                rte_eth_dev_start(link_id);
 	}
 	else
 	{
-		rte_eth_dev_stop(linkId);
+		rte_eth_dev_stop(link_id);
 	}
-	pfm_trace_msg("OpState of linkId=%d changed to %s.",
-			linkId, 
-			((OPSSTATE_DISABLED == desiredState) ? "DOWN" : "UP"));
+	pfm_trace_msg("OpState of link_id=%d changed to %s.",
+			link_id, 
+			((OPSSTATE_DISABLED == desired_state) ? "DOWN" : "UP"));
 
 	return;
 }

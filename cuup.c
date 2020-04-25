@@ -7,21 +7,21 @@
 
 #define GTP_PORTNO	2152
 
-static void terminateProgram(void)
+static void terminate_program(void)
 {
 	pfm_terminate();
 	pfm_log_close();
 	return;
 }
 
-static void signalHandler(int sigNum)
+static void signal_handler(int sig_num)
 {
-	if (    ( SIGINT == sigNum ) ||
-		( SIGTERM == sigNum ))
+	if (    ( SIGINT == sig_num ) ||
+		( SIGTERM == sig_num ))
 	{
 		pfm_trace_msg("Signal %d received, preparing to exit..",
-					sigNum);
-		terminateProgram();
+					sig_num);
+		terminate_program();
 	}
 	return;
 }
@@ -29,21 +29,21 @@ static void signalHandler(int sigNum)
 
 int main(int argc, char *argv[])
 {
-	pfm_retval_t retVal;
+	pfm_retval_t ret_val;
 	int ret;
-	int lcoreId;
+	int lcore_id;
 
 	/* initialize logging and tracing libs*/
 	pfm_log_open("CUUP",PFM_LOG_DEBUG);
 
 	/* install signal handlers */
-	signal(SIGINT, signalHandler);
-	signal(SIGTERM, signalHandler);
+	signal(SIGINT, signal_handler);
+	signal(SIGTERM, signal_handler);
 
-	retVal = pfm_init(argc, argv);
-	if (PFM_SUCCESS != retVal)
+	ret_val = pfm_init(argc, argv);
+	if (PFM_SUCCESS != ret_val)
 	{
-		terminateProgram();
+		terminate_program();
 		exit(1);
 	}
 
@@ -51,16 +51,16 @@ int main(int argc, char *argv[])
 	pfm_link_open("0000:00:0a.0");
 
 	unsigned char ip[5] = { 192,168,57,200 };
-	retVal = pfm_ingress_classifier_add(0,"NGu0",ip,24,GTP_PORTNO);
+	ret_val = pfm_ingress_classifier_add(0,"NGu0",ip,24,GTP_PORTNO);
 	ip[3]++;
-	retVal = pfm_ingress_classifier_add(0,"NGu1",ip,24,GTP_PORTNO);
+	ret_val = pfm_ingress_classifier_add(0,"NGu1",ip,24,GTP_PORTNO);
 	ip[3]++;
 	ip[2]++;
-	retVal = pfm_ingress_classifier_add(1,"F1u0",ip,24,GTP_PORTNO);
+	ret_val = pfm_ingress_classifier_add(1,"F1u0",ip,24,GTP_PORTNO);
 	ip[3]++;
-	retVal = pfm_ingress_classifier_add(1,"F1u1",ip,24,GTP_PORTNO);
+	ret_val = pfm_ingress_classifier_add(1,"F1u1",ip,24,GTP_PORTNO);
 	ip[3]++;
-	if (PFM_SUCCESS != retVal)
+	if (PFM_SUCCESS != ret_val)
 	{
         	pfm_log_msg(PFM_LOG_WARNING,
 			"KNI Port creation failed");
@@ -68,33 +68,33 @@ int main(int argc, char *argv[])
 		exit(3);
 	}
 
-	retVal = pfm_start_pkt_processing();
-	if (PFM_SUCCESS != retVal)
+	ret_val = pfm_start_pkt_processing();
+	if (PFM_SUCCESS != ret_val)
 	{
         	pfm_log_msg(PFM_LOG_WARNING,
 			"DPPF_StartPktProcessing() failed");
-		terminateProgram();
+		terminate_program();
 		exit(2);
 	}
 
-	RTE_LCORE_FOREACH_SLAVE(lcoreId)
+	RTE_LCORE_FOREACH_SLAVE(lcore_id)
 	{
-		ret = rte_eal_wait_lcore(lcoreId);
+		ret = rte_eal_wait_lcore(lcore_id);
 		if (0 != ret)
 		{
 			pfm_log_rte_err(PFM_LOG_WARNING,
 				"rte_eal_wait_lcore(lcore=%d) failed",
-				lcoreId);
+				lcore_id);
 			exit(3);
 		}
 		else
 		{
-			pfm_trace_msg("lcore %d stopped", lcoreId);
+			pfm_trace_msg("lcore %d stopped", lcore_id);
 		}
 	}
 	pfm_trace_msg("All slave threads stopped");
 
-	terminateProgram();
+	terminate_program();
 	exit(0);
 }
 

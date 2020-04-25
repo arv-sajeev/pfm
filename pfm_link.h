@@ -3,10 +3,10 @@
 #include "pfm.h"
 #include "pfm_comm.h"
 
-int LinkRead(struct rte_mbuf *rxPkts[],uint16_t burstSize,uint16_t *port);
+int link_read(struct rte_mbuf *rx_pkts[],uint16_t burst_size,uint16_t *port);
 
 /* Application needs to implement the following callback functions */
-void LinkStateChangeCallback(int portId, ops_state_t opsState);
-void LinkStateChange(const int linkId,const ops_state_t desiredState);
+void link_state_change_callback(int por_id, ops_state_t ops_state);
+void link_state_change(const int link_id,const ops_state_t desired_state);
 
 #endif

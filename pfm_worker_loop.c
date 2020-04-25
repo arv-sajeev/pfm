@@ -7,7 +7,7 @@
 #include "pfm.h"
 #include "pfm_log.h"
 #include "pfm_comm.h"
-#include "workerLoop.h"
+#include "worker_loop.h"
 
 /*************
  * pfm_data_ind()
@@ -17,21 +17,21 @@
  * It needs to be replaced when applicaiton is implemented.
  *
  ****************/
-void pfm_data_ind(      const uint32_t localIp,
-                        const uint16_t portNum,
-                        const uint16_t tunnelId,
+void pfm_data_ind(      const uint32_t local_ip,
+                        const uint16_t port_num,
+                        const uint16_t tunnel_id,
                         struct rte_mbuf *mbuf)
 {
-        printf("Invoked pfm_data_ind(localIp=%d,portNum=%d,"
-		"tunnelId=%d,mbuf=%p\n). But not implemented\n",
-                        localIp,portNum, tunnelId, mbuf);
+        printf("Invoked pfm_data_ind(local_ip=%d,port_num=%d,"
+		"tunnel_id=%d,mbuf=%p\n). But not implemented\n",
+                        local_ip,port_num, tunnel_id, mbuf);
 
 	rte_pktmbuf_free(mbuf);
         return;
 }
 
 
-int workerLoop( __attribute__((unused)) void *args)
+int worker_loop( __attribute__((unused)) void *args)
 {
 	struct rte_mbuf *rx_pkts[8];
 	struct rte_mbuf *tx_pkts[TX_BURST_SIZE];

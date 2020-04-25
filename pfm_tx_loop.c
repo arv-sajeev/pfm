@@ -5,11 +5,11 @@
 
 #include "pfm.h"
 #include "pfm_comm.h"
-#include "txLoop.h"
-#include "link.h"
-#include "kni.h"
+#include "pfm_tx_loop.h"
+#include "pfm_link.h"
+#include "pfm_kni.h"
 
-int txLoop( __attribute__((unused)) void *args)
+int tx_loop( __attribute__((unused)) void *args)
 {
 	struct rte_mbuf *tx_pkts[TX_BURST_SIZE];
 	uint16_t rx_sz,tx_sz;

@@ -26,7 +26,7 @@ typedef struct {
 
 pfm_retval_t pfm_init(int argc, char *argv[]);
 pfm_retval_t pfm_end_point_add(	const int link_id,
-				const char *kpi_name,
+				const char *kni_name,
 				const uint32_t local_ip_addr,
 				const uint16_t local_gtp_port_num,
                         	const end_point_info_t ep[],

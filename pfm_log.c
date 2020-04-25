@@ -42,7 +42,7 @@ console_log_write(__attribute__((unused)) void *c,
 void pfm_log_open( const char *app_name, const pfm_log_priority_t priority)
 {
 #ifndef CONSLOG
-	FILE *log_steam;
+	FILE *log_stream;
 
 	static cookie_io_functions_t console_log_func =
 	{
@@ -52,10 +52,10 @@ void pfm_log_open( const char *app_name, const pfm_log_priority_t priority)
 		.close	= NULL
 	};
 
-        log_steam = fopencookie(NULL, "w+", console_log_func);
-        if (log_steam != NULL)
+        long_stream = fopencookie(NULL, "w+", console_log_func);
+        if (long_stream != NULL)
 	{
-		rte_openlog_stream(log_steam);
+		rte_openlog_stream(long_stream);
 	}
 #endif
 

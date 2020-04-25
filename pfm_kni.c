@@ -16,54 +16,54 @@
 
 #include "pfm.h"
 #include "pfm_comm.h"
-#include "link.h"
-#include "kni.h"
+#include "pfm_link.h"
+#include "pfm_kni.h"
 
 
 typedef struct 
 {
 	struct		rte_kni *ptr;
 	char		name[RTE_KNI_NAMESIZE+1];
-	unsigned char	ipAddr[IP_ADDR_SIZE];
-	int		subnetMaskLen;
-	int		linkId;
-	ops_state_t	opsState;
-	admin_state_t	adminState;
-} KniInfo_t;
+	unsigned char	ip_addr[IP_ADDR_SIZE];
+	int		subnet_mask_len;
+	int		link_id;
+	ops_state_t	ops_state;
+	admin_state_t	admin_state;
+} kni_info_t;
 
-static int KniCount = 0;
-static KniInfo_t KniInfoList[MAX_KNI_PORTS];
-static const unsigned char defaultMacAddr[MAC_ADDR_SIZE] =
+static int kni_count = 0;
+static kni_info_t kni_info_list[MAX_KNI_PORTS];
+static const unsigned char default_mac_addr[MAC_ADDR_SIZE] =
 	{ 0x06, 0x10, 0x20, 0x30, 0x40, 0x50 };
 
 /* Callback function which is invoked when MTU is changed*/
-static int kniChangeMtu(uint16_t kniId, unsigned int newMtu)
+static int kni_change_mtu(uint16_t kni_id, unsigned int new_mtu)
 {
-	pfm_trace_msg("kniChangeMtu(kniId=%d, newMtu=%d) invoked. "
+	pfm_trace_msg("kni_change_mtu(kni_id=%d, new_mtu=%d) invoked. "
 				"But MTU change is not yet implemented",
-				kniId,newMtu);
+				kni_id,new_mtu);
 	
        
 	return 0;
 }
 
-static pfm_retval_t  ipAddrConfig(	const char *ifName,
-			ops_state_t kniOpsState,
-			const unsigned char *ipAddr,
-			const int maskLen)
+static pfm_retval_t  ip_addr_config(	const char *if_name,
+			ops_state_t kni_ops_state,
+			const unsigned char *ip_addr,
+			const int mask_len)
 {
-	static char strIpAddr[30];
+	static char str_ip_addr[30];
 	char *operation;
 	pid_t pid; 
 	int status; 
 
 	/* Convert IP address to string */	
-	sprintf(strIpAddr,"%d.%d.%d.%d/%d",
-		ipAddr[0],ipAddr[1],ipAddr[2],ipAddr[3],maskLen);
+	sprintf(str_ip_addr,"%d.%d.%d.%d/%d",
+		ip_addr[0],ip_addr[1],ip_addr[2],ip_addr[3],mask_len);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdiscarded-qualifiers"
-	if (OPSSTATE_ENABLED == kniOpsState)
+	if (OPSSTATE_ENABLED == kni_ops_state)
 	{
 		operation = "add";
 	}
@@ -73,14 +73,14 @@ static pfm_retval_t  ipAddrConfig(	const char *ifName,
 	}
 #pragma GCC diagnostic pop
 
-	/* start a chiled process */
+	/* start a child process */
 	pid = fork(); 
 	if ((-1) == pid )
 	{
 		/* fork() failed */
 		pfm_log_std_err(PFM_LOG_ERR,
 				"Not able to assign IP %s to KNI %s. "
-				"fork() failed",strIpAddr,ifName);
+				"fork() failed",str_ip_addr,if_name);
 		return PFM_FAILED;
 	}
 	pfm_trace_msg("Child prcess fork() sucessful"); 
@@ -89,15 +89,15 @@ static pfm_retval_t  ipAddrConfig(	const char *ifName,
 		/* in the context of child process */	
 		/* CMD format is "ip addr add 192.168.121.45/24 dev eth0" */
 
-		const char *const argList[] = 
-		   { "ip", "addr", operation, strIpAddr, "dev", ifName, NULL };
+		const char *const arg_list[] = 
+		   { "ip", "addr", operation, str_ip_addr, "dev", if_name, NULL };
 
 		pfm_trace_msg("Invoking execvp(%s %s %s %s %s %s)",
-			argList[0],argList[1],argList[2],
-			argList[3],argList[4],argList[5]); 
+			arg_list[0],arg_list[1],arg_list[2],
+			arg_list[3],arg_list[4],arg_list[5]); 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
-		execvp(argList[0], argList); 
+		execvp(arg_list[0], arg_list); 
 #pragma GCC diagnostic pop
 		pfm_trace_msg("execvp() done"); 
 		exit(0); /* terminate the chiled procss when done */
@@ -111,13 +111,13 @@ static pfm_retval_t  ipAddrConfig(	const char *ifName,
 			{
 				pfm_log_std_err(PFM_LOG_ERR,
 				"Not able to assign IP %s to KNI %s. "
-				"WIFEXITED() returm failure",strIpAddr,ifName);
+				"WIFEXITED() returm failure",str_ip_addr,if_name);
 				return PFM_FAILED;
 			}
 			else
 			{
 				pfm_trace_msg("IP %s set to KNI %s",
-						strIpAddr,ifName);
+						str_ip_addr,if_name);
 				return PFM_SUCCESS;
 			}
 		}	
@@ -126,7 +126,7 @@ static pfm_retval_t  ipAddrConfig(	const char *ifName,
 			pfm_log_std_err(PFM_LOG_ERR,
 				"Not able to assign IP %s to KNI %s. "
 				"Child did not teminate normaly\n",
-				strIpAddr,ifName);
+				str_ip_addr,if_name);
 			return PFM_FAILED;
 		}
 	} 
@@ -136,101 +136,101 @@ static pfm_retval_t  ipAddrConfig(	const char *ifName,
 		pfm_log_std_err(PFM_LOG_ERR,
 				"Not able to assign IP %s to KNI %s. "
 				"waitpid() failed",
-				strIpAddr,ifName);
+				str_ip_addr,if_name);
 		return PFM_FAILED;
 	} 
 }
 
 /* Callback function which is invoked when configuring each KNI interface */
-static int kniConfigNetworkIf(uint16_t kniId, uint8_t kniState)
+static int kni_config_network_if(uint16_t kni_id, uint8_t kni_state)
 {
-	int linkId;
-	ops_state_t newOpsState;
+	int link_id;
+	ops_state_t new_ops_state;
 	int idx;
 
-	if (kniId >= KniCount)
+	if (kni_id >= kni_count)
 	{
 		pfm_log_msg(PFM_LOG_ERR,
-			"Invalid KniId=%d passed to kniConfigNetworkIf()",
-			kniId);
+			"Invalid KniId=%d passed to kni_config_network_if()",
+			kni_id);
 		return 0;
 	}
 
-	if ( NULL == KniInfoList[kniId].ptr) 
+	if ( NULL == kni_info_list[kni_id].ptr) 
 	{
 		pfm_log_rte_err(PFM_LOG_ERR,
-			"KNI ptr for kniId=%d is null",kniId);
+			"KNI ptr for kni_id=%d is null",kni_id);
 		return 0;
 	}
 
 	pfm_trace_msg("Kni %s(%d) state changed to %s",
-			KniInfoList[kniId].name,
-			kniId,
-			((ETH_LINK_UP == kniState) ? "UP": "DOWN"));
+			kni_info_list[kni_id].name,
+			kni_id,
+			((ETH_LINK_UP == kni_state) ? "UP": "DOWN"));
 
-	if (ETH_LINK_UP == kniState)
+	if (ETH_LINK_UP == kni_state)
 	{
-		newOpsState = OPSSTATE_ENABLED;
-		KniInfoList[kniId].opsState = OPSSTATE_ENABLED;
+		new_ops_state = OPSSTATE_ENABLED;
+		kni_info_list[kni_id].ops_state = OPSSTATE_ENABLED;
 	}
 	else
 	{
-		newOpsState = OPSSTATE_DISABLED;
-		KniInfoList[kniId].opsState = OPSSTATE_DISABLED;
+		new_ops_state = OPSSTATE_DISABLED;
+		kni_info_list[kni_id].ops_state = OPSSTATE_DISABLED;
 	}
-	linkId = KniInfoList[kniId].linkId;
+	link_id = kni_info_list[kni_id].link_id;
 
-	if (OPSSTATE_ENABLED == newOpsState )
+	if (OPSSTATE_ENABLED == new_ops_state )
 	{
 		pfm_trace_msg("At least one KNI for LinkId=%d is UP. "
-			"Hence, Enable the Link",linkId);
+			"Hence, Enable the Link",link_id);
 		/* if any of the kni associated with link is enabled
 		   then the link needs to be enabled */
-		LinkStateChange(linkId,OPSSTATE_ENABLED);
+		link_state_change(link_id,OPSSTATE_ENABLED);
 	}
 	else
 	{
 		/* if all the knis associated with alink is in diabled state
 		   the the link can be dissabled */
-		for(idx=0; idx < KniCount; idx++)
+		for(idx=0; idx < kni_count; idx++)
 		{
-			if ( KniInfoList[idx].linkId == linkId) 
+			if ( kni_info_list[idx].link_id == link_id) 
 			{
-				if(KniInfoList[idx].opsState !=
+				if(kni_info_list[idx].ops_state !=
 							OPSSTATE_DISABLED)
 				{
 					break;
 				}
 			}
 		}
-		if (idx < KniCount)
+		if (idx < kni_count)
 		{
 			/* atlest one KNI which is mapped to the Link is
 			   still in enabled state. Hence the link
 			   can not be disabled */
 			pfm_trace_msg("At least one KNI of LinkId=%d is UP."
-				" Hence, can not disable Link",linkId);
+				" Hence, can not disable Link",link_id);
 		}
 		else
 		{
 			/* all KNIs of linka are in disabe state.
 			   hence disable the link */
 			pfm_trace_msg("All KNIs for LinkId=%d are DOWN. "
-				"Hence, disable Link",linkId);
-			LinkStateChange(linkId,OPSSTATE_DISABLED);
+				"Hence, disable Link",link_id);
+			link_state_change(link_id,OPSSTATE_DISABLED);
 		}
 	}
 	pfm_trace_msg("KNI '%s' state changed to %s",
-			KniInfoList[kniId].name,
-			((newOpsState == OPSSTATE_ENABLED) ?
+			kni_info_list[kni_id].name,
+			((new_ops_state == OPSSTATE_ENABLED) ?
 				"UP":"DOWN"));
 	return 0;
 }
 
 
-static void kniSetState(const KniInfo_t *kni_ptr, const ops_state_t desiredState)
+static void kni_set_state(const kni_info_t *kni_ptr, const ops_state_t desired_state)
 {
-	int prevState, newState;
+	int prev_state, new_state;
 
 	if (NULL == kni_ptr->ptr)
 	{
@@ -238,97 +238,97 @@ static void kniSetState(const KniInfo_t *kni_ptr, const ops_state_t desiredState
 			"KNI ptr for KNI=%s is null",kni_ptr->name);
 		return;
 	}
-	newState = ETH_LINK_DOWN;
-	if (OPSSTATE_ENABLED == desiredState)
+	new_state = ETH_LINK_DOWN;
+	if (OPSSTATE_ENABLED == desired_state)
 	{
-		newState = ETH_LINK_UP;
+		new_state = ETH_LINK_UP;
 	}
 
-	prevState = rte_kni_update_link(kni_ptr->ptr,newState);
-	if (0 > prevState)
+	prev_state = rte_kni_update_link(kni_ptr->ptr,new_state);
+	if (0 > prev_state)
 	{
 		pfm_log_rte_err(PFM_LOG_ERR,
 			"Not able to set Kni state. "
-			"rte_kni_update_link(kni=%s,newState=%s) failed"
-			" with retVal=%d",
+			"rte_kni_update_link(kni=%s,new_state=%s) failed"
+			" with ret_val=%d",
 			kni_ptr->name,
-			((newState == ETH_LINK_UP) ? "UP":"DOWN"),
-			prevState);
+			((new_state == ETH_LINK_UP) ? "UP":"DOWN"),
+			prev_state);
 		return;
 	}
 
-	if (prevState == newState)
+	if (prev_state == new_state)
 	{
 		pfm_trace_msg("KNI '%s' state is not changed. "
 			"It is still %s.",
 			kni_ptr->name,
-			(newState == ETH_LINK_UP) ? "UP":"DOWN");
+			(new_state == ETH_LINK_UP) ? "UP":"DOWN");
 		return;
 	}
 	pfm_trace_msg("KNI '%s' state is changed to %s.",
 			kni_ptr->name,
-			(newState == ETH_LINK_UP) ? "UP":"DOWN");
+			(new_state == ETH_LINK_UP) ? "UP":"DOWN");
 	return;
 }
 
-void KniStateChange(const int linkId,const ops_state_t desiredState)
+void kni_state_change(const int link_id,const ops_state_t desired_state)
 {
 	int idx;
-	static pfm_bool_t firstCall = PFM_TRUE;
-	pfm_retval_t retVal;
+	static pfm_bool_t first_call = PFM_TRUE;
+	pfm_retval_t ret_val;
 
-	for(idx=0; idx < KniCount; idx++)
+	for(idx=0; idx < kni_count; idx++)
 	{
-		if ( (KniInfoList[idx].linkId == linkId) &&
-			(KniInfoList[idx].ptr != NULL))
+		if ( (kni_info_list[idx].link_id == link_id) &&
+			(kni_info_list[idx].ptr != NULL))
 		{
-			kniSetState(&KniInfoList[idx],desiredState);
+			kni_set_state(&kni_info_list[idx],desired_state);
 		}
 	}
 
-	if (PFM_TRUE != firstCall)
+	if (PFM_TRUE != first_call)
 	{
 		return;
 	}
 
-	firstCall = PFM_FALSE;
+	first_call = PFM_FALSE;
 
-	for(idx=0; idx < KniCount; idx++)
+	for(idx=0; idx < kni_count; idx++)
 	{
-		retVal = ipAddrConfig(KniInfoList[idx].name,
-				KniInfoList[idx].opsState,
-				KniInfoList[idx].ipAddr, 
-				KniInfoList[idx].subnetMaskLen);
-		if (PFM_SUCCESS != retVal)
+		ret_val = ip_addr_config(kni_info_list[idx].name,
+				kni_info_list[idx].ops_state,
+				kni_info_list[idx].ip_addr, 
+				kni_info_list[idx].subnet_mask_len);
+		if (PFM_SUCCESS != ret_val)
 		{
 			pfm_log_msg(PFM_LOG_ERR,
 				"Failed to %s IP Addr to KNI=%s",
-				((KniInfoList[idx].opsState == OPSSTATE_ENABLED) ?
+				((kni_info_list[idx].ops_state == OPSSTATE_ENABLED) ?
 					"ADD" : "REMOVE"),
-				KniInfoList[idx].name);
+				kni_info_list[idx].name);
 		}
 	}
 
 	return;
 }
-struct rte_kni *KniOpen(const int linkId,
-			const char *kniName,
-			const unsigned char *ipAddr,
-			const int subnetMaskLen)
+struct rte_kni *kni_open(const int link_id,
+			const char *kni_name,
+			const unsigned char *ip_addr,
+			const int subnet_mask_len)
 {
 	struct rte_kni *kni_ptr;
 	struct rte_kni_conf conf;
 	struct rte_kni_ops ops;
 	struct rte_eth_dev_info dev_info;
-	int retVal;
+	int ret_val;
 	int ret;
 	int idx;
         
 	/* Initialize KNI subsystem if it is the 1st port*/
-	if (0 == KniCount)
+	if (0 == kni_count)
 	{
-		retVal = rte_kni_init(MAX_KNI_PORTS);
-		if (0 != retVal)
+		ret_val = rte_kni_init(MAX_KNI_PORTS);
+		if (0 != ret_val)
 		{
 			pfm_log_rte_err(PFM_LOG_EMERG,
 				"rte_kni_init(%d) failed",MAX_KNI_PORTS);
@@ -337,56 +337,56 @@ struct rte_kni *KniOpen(const int linkId,
 		pfm_trace_msg("Initialized KNI subsystem");
 	}
 
-	for(idx=0; idx < KniCount; idx++)
+	for(idx=0; idx < kni_count; idx++)
 	{
-		if (0 == strcmp(KniInfoList[idx].name,kniName))
+		if (0 == strcmp(kni_info_list[idx].name,kni_name))
 		{
 			pfm_log_msg(PFM_LOG_WARNING,
 				"KNI with name %s already exists. "
 				"Hence not created again",
-				kniName);
+				kni_name);
 			return NULL;
 		}
 	}
 
-	if (KniCount >= MAX_KNI_PORTS)
+	if (kni_count >= MAX_KNI_PORTS)
 	{
 		pfm_log_msg(PFM_LOG_ERR,
 			"Trying to open too many (%d) KNI ports. "
 			"Only %d is allowed. Request failed.",
-			(KniCount+1),MAX_KNI_PORTS);
+			(kni_count+1),MAX_KNI_PORTS);
 		return NULL;
 	}
 
 
 	memset(&conf, 0, sizeof(conf));
-	strncpy(conf.name,kniName,RTE_KNI_NAMESIZE);
+	strncpy(conf.name,kni_name,RTE_KNI_NAMESIZE);
 	conf.core_id = LCORE_TXLOOP;
-	conf.group_id = linkId;
+	conf.group_id = link_id;
 	conf.mbuf_size = RTE_MBUF_DEFAULT_DATAROOM;
 	// conf.addr; Not filled
 	// conf.id; Not filled
 	// conf.force_bind; Not filled
 
 	/* get MAC addres of the associated link */
-	ret = rte_eth_macaddr_get(linkId,
+	ret = rte_eth_macaddr_get(link_id,
                         (struct rte_ether_addr *)&conf.mac_addr);
         if (ret != 0)
         {
-		memcpy(conf.mac_addr,defaultMacAddr,MAC_ADDR_SIZE);
+		memcpy(conf.mac_addr,default_mac_addr,MAC_ADDR_SIZE);
 		pfm_log_rte_err(PFM_LOG_WARNING,
 			"Not able to get MAC address for link %d. "
 			"rte_eth_macaddr_get() failed. "
 			"Assumed default MACAddr = "
 			"%02X:%02X:%02X:%02X:%02X:%02X",
-			linkId,
+			link_id,
 			conf.mac_addr[0],conf.mac_addr[1],
 			conf.mac_addr[2],conf.mac_addr[3],
 			conf.mac_addr[4],conf.mac_addr[5]);
         }
 
 	/* Get MTU size of the associated link */
-        ret = rte_eth_dev_get_mtu(linkId, &conf.mtu);
+        ret = rte_eth_dev_get_mtu(link_id, &conf.mtu);
         if (ret != 0)
         {
         	conf.mtu = DEFAULT_MTU_SIZE;
@@ -394,11 +394,11 @@ struct rte_kni *KniOpen(const int linkId,
 			"Not able to get MTU Size for link %d. "
 			"rte_eth_dev_get_mtu() failed. "
 			"Assumed default value MTU =  %d",
-			linkId, conf.mtu);
+			link_id, conf.mtu);
         }
 
 	/* Get min and max MTU size supported by associated link */
-	ret = rte_eth_dev_info_get(linkId, &dev_info);
+	ret = rte_eth_dev_info_get(link_id, &dev_info);
 	if (ret == 0)
 	{
         	conf.min_mtu = dev_info.min_mtu;
@@ -413,13 +413,13 @@ struct rte_kni *KniOpen(const int linkId,
 			"for link %d. rte_eth_dev_info_get() failed. "
 			"Assumed default values "
 			"minMTU=%d,maxMTU=%d",
-			linkId, conf.min_mtu,conf.max_mtu);
+			link_id, conf.min_mtu,conf.max_mtu);
 	}
 
 	memset(&ops, 0, sizeof(ops));
-	ops.port_id = KniCount;
-	ops.change_mtu = kniChangeMtu;
-	ops.config_network_if = kniConfigNetworkIf;
+	ops.port_id = kni_count;
+	ops.change_mtu = kni_change_mtu;
+	ops.config_network_if = kni_config_network_if;
 	ops.config_mac_address = NULL;
     	ops.config_promiscusity = NULL;
    	ops.config_allmulticast = NULL;
@@ -427,13 +427,13 @@ struct rte_kni *KniOpen(const int linkId,
 	if (NULL == kni_ptr)
 	{
 		pfm_log_rte_err(PFM_LOG_ERR,
-			"rte_kni_alloc() failed", retVal);
+			"rte_kni_alloc() failed", ret_val);
 		return NULL;
 	}
 	pfm_trace_msg("Allocated KNI interface '%s', LinkId=%d."
 			"with MAC=%02X:%02X:%02X:%02X:%02X:%02X,"
 			"MTU=%d,minMTU=%d,maxMTU=%d",
-			kniName,linkId,
+			kni_name,link_id,
 			conf.mac_addr[0],conf.mac_addr[1],
 			conf.mac_addr[2],conf.mac_addr[3],
 			conf.mac_addr[4],conf.mac_addr[5],
@@ -442,16 +442,16 @@ struct rte_kni *KniOpen(const int linkId,
 			conf.max_mtu);
 
 
-	KniInfoList[KniCount].ptr = kni_ptr;
-	strncpy(KniInfoList[KniCount].name,kniName,RTE_KNI_NAMESIZE);
-	memcpy(KniInfoList[KniCount].ipAddr,ipAddr,IP_ADDR_SIZE);
-	KniInfoList[KniCount].subnetMaskLen = subnetMaskLen;
-	KniInfoList[KniCount].linkId = linkId;
-	KniCount++;
+	kni_info_list[kni_count].ptr = kni_ptr;
+	strncpy(kni_info_list[kni_count].name,kni_name,RTE_KNI_NAMESIZE);
+	memcpy(kni_info_list[kni_count].ip_addr,ip_addr,IP_ADDR_SIZE);
+	kni_info_list[kni_count].subnet_mask_len = subnet_mask_len;
+	kni_info_list[kni_count].link_id = link_id;
+	kni_count++;
 	return kni_ptr;
 }
 
-void KniClose(struct rte_kni *kni)
+void kni_close(struct rte_kni *kni)
 {
 	int ret;
 	int idx;
@@ -459,24 +459,24 @@ void KniClose(struct rte_kni *kni)
 	if (NULL == kni)
 	{
 		pfm_log_rte_err(PFM_LOG_WARNING,
-			"NULL KNI pointer passed to KniClose()");
+			"NULL KNI pointer passed to kni_close()");
 		return;
 	}
 
-	for (idx=0; idx < KniCount; idx++)
+	for (idx=0; idx < kni_count; idx++)
 	{
-		if (KniInfoList[idx].ptr == kni)
+		if (kni_info_list[idx].ptr == kni)
 		{
 			break;
 		}
 	}
-	if (idx >= KniCount)
+	if (idx >= kni_count)
 	{
 		pfm_log_rte_err(PFM_LOG_WARNING,
-			"Unknow KNI pointer %p passed to KniClose()",kni);
+			"Unknow KNI pointer %p passed to kni_close()",kni);
 		return;
 	}
-	KniInfoList[idx].ptr = NULL;
+	kni_info_list[idx].ptr = NULL;
 	ret = rte_kni_release(kni);
 	if (0 != ret)
 	{
@@ -484,7 +484,7 @@ void KniClose(struct rte_kni *kni)
 		return;
 	}
 	pfm_trace_msg("Released KNI interface '%s(%d)'",
-			KniInfoList[idx].name, idx);
+			kni_info_list[idx].name, idx);
 	return;
 }
 
@@ -495,17 +495,17 @@ void KniClose(struct rte_kni *kni)
  * Args:
  *	kni	-	INPUT		- pointer to KNI where the packet
  *					  to be send.
- *	pktBurst-	INPUT		- array of packet to be send
- *	numPkts	-	INPUT		- number of packes in 'pktBurst'
+ *	pkt_burst-	INPUT		- array of packet to be send
+ *	num_pkts	-	INPUT		- number of packes in 'pkt_burst'
  *					  
  *
  * Return: Number of packets actuly written
  ******/
-void KniWrite(	struct rte_kni *kni,
-			struct rte_mbuf *pktBurst[],
-			const unsigned int numPkts)
+void kni_write(	struct rte_kni *kni,
+			struct rte_mbuf *pkt_burst[],
+			const unsigned int num_pkts)
 {
-	unsigned int pktsSend;
+	unsigned int pkts_send;
 
 	if (NULL == kni)
 	{
@@ -514,17 +514,17 @@ void KniWrite(	struct rte_kni *kni,
 	}
 
 	/* Burst tx to kni */
-	pktsSend = rte_kni_tx_burst(kni, pktBurst, numPkts);
-	if (pktsSend < numPkts)
+	pkts_send = rte_kni_tx_burst(kni, pkt_burst, num_pkts);
+	if (pkts_send < num_pkts)
 	{
 		/* some packets are not send.
 		   Drop them by releasing the buffers */
 		pfm_log_rte_err(PFM_LOG_WARNING,
 			"Dropped %d slow path packets rte_kni_tx_burst()",
-			(numPkts-pktsSend));
-		for(;pktsSend < numPkts; pktsSend++)
+			(num_pkts-pkts_send));
+		for(;pkts_send < num_pkts; pkts_send++)
 		{
-			rte_pktmbuf_free(pktBurst[pktsSend]);
+			rte_pktmbuf_free(pkt_burst[pkts_send]);
 		}
 	}
 	rte_kni_handle_request(kni);
@@ -537,66 +537,66 @@ void KniWrite(	struct rte_kni *kni,
  * Read a burst of packets from KNI interface
  *
  * Args:
- *	pktBurst-	input/output. read packets are stored in this array
+ *	pkt_burst-	input/output. read packets are stored in this array
  *	kni	-	input- pointer to KNI which need to be read
- *	numPkts	-	INPUT		- size of 'pktBurst'. i.e.
+ *	num_pkts	-	INPUT		- size of 'pkt_burst'. i.e.
  *					  i.e, max packet to read.
  *
  * Return: Number of packets actuly read
  *
  ******/
-int KniRead(	struct rte_mbuf *pktBurst[],
-		uint16_t burstSize,
-		int *linkId)
+int kni_read(	struct rte_mbuf *pkt_burst[],
+		uint16_t burst_size,
+		int *link_id)
 {
-	static uint16_t kniIdxToReadNext = 0;
-        int kniIdxStart;
-	int pktsRecvd;
+	static uint16_t next_read= 0;
+        int start;
+	int rx_sz;
 
-	kniIdxStart = kniIdxToReadNext;
+	start = next_read;
 	do
 	{
-		pktsRecvd = 0;
-		if (NULL != KniInfoList[kniIdxToReadNext].ptr)
+		rx_sz = 0;
+		if (NULL != kni_info_list[next_read].ptr)
 		{
 			rte_kni_handle_request(
-				KniInfoList[kniIdxToReadNext].ptr);
+				kni_info_list[next_read].ptr);
 
 			/* check only if the kni is in unlocked state*/
 	                if (OPSSTATE_ENABLED ==
-	                        KniInfoList[kniIdxToReadNext].opsState)
+	                        kni_info_list[next_read].ops_state)
 	                {
-				if (KniInfoList[kniIdxToReadNext].ptr != NULL)
+				if (kni_info_list[next_read].ptr != NULL)
 				{
-					pktsRecvd = rte_kni_rx_burst(
-					     KniInfoList[kniIdxToReadNext].ptr,
-						pktBurst,
-						burstSize);
+					rx_sz = rte_kni_rx_burst(
+					     kni_info_list[next_read].ptr,
+						pkt_burst,
+						burst_size);
 
                      		  	/* store the kni name in output
 					   argument */
-					*linkId =
-					   KniInfoList[kniIdxToReadNext].linkId;
+					*link_id =
+					   kni_info_list[next_read].link_id;
 				};
 			};
 		}
 
                 /* Next iteration shold check next KNI in round robin.*/
-                kniIdxToReadNext++;
-                if (kniIdxToReadNext >= KniCount)
+                next_read++;
+                if (next_read>= kni_count)
                 {
                         // wrap around
-                        kniIdxToReadNext = 0;
+                        next_read= 0;
                 }
 
                 /* if a bust is received, retrun the funtion*/
-                if (0 < pktsRecvd)
+                if (0 < rx_sz)
                 {
-			//printf("KNI Tx. %d Pkts on Link=%d\n",pktsRecvd,*linkId);
-                        return pktsRecvd;
+			//printf("KNI Tx. %d Pkts on Link=%d\n",rx_sz,*link_id);
+                        return rx_sz;
                 }
 
-	} while (kniIdxToReadNext != kniIdxStart); 
+	} while (next_read!= start); 
 
 	/* non of the enabled knis have packets. hence return 0 */
 
