@@ -5,11 +5,11 @@
 
 #include "pfm.h"
 #include "pfm_comm.h"
-#include "link.h"
-#include "rxLoop.h"
-#include "txLoop.h"
-#include "distLoop.h"
-#include "workerLoop.h"
+#include "pfm_link.h"
+#include "pfm_rx_loop.h"
+#include "pfm_tx_loop.h"
+#include "dist_loop.h"
+#include "worker_loop.h"
 #include "classifier.h"
 #include "kni.h"
 
@@ -123,7 +123,7 @@ pfm_retval_t pfm_init(int argc, char *argv[])
 pfm_retval_t pfm_start_pkt_processing(void)
 {
 	int ret;
-	int workerCount=0;
+	int worker_count=0;
 
         ret = rte_eal_remote_launch(txLoop, NULL, LCORE_TXLOOP);
 	if (0 != ret)
@@ -150,7 +150,7 @@ pfm_retval_t pfm_start_pkt_processing(void)
 			(lc != LCORE_TXLOOP) &&
 			(lc != LCORE_DISTRIBUTOR))
 		{
-			ret = rte_eal_remote_launch(workerLoop,NULL,lc);
+			ret = rte_eal_remote_launch(worker_loop,NULL,lc);
 			if (0 != ret)
 			{
                 		pfm_log_rte_err(PFM_LOG_ERR,
@@ -158,15 +158,15 @@ pfm_retval_t pfm_start_pkt_processing(void)
 					"(WORKER lcore=%d) failed",lc);
 			} else
 			{
-				workerCount++;
+				worker_count++;
 				pfm_trace_msg("WORKER lcore %d started",lc);
 			}
 		}
 	}
 
-	if (workerCount > 0)
+	if (worker_count > 0)
 	{
-		pfm_trace_msg("%d WORKERs lcore started",workerCount);
+		pfm_trace_msg("%d WORKERs lcore started",worker_count);
 	}
 
 	else
@@ -176,7 +176,7 @@ pfm_retval_t pfm_start_pkt_processing(void)
 		return PFM_FAILED;
 	}
 
-	ret = rte_eal_remote_launch(rxLoop, NULL, LCORE_RXLOOP);
+	ret = rte_eal_remote_launch(rx_loop, NULL, LCORE_RXLOOP);
         if (0 != ret)
         {
                 pfm_log_rte_err(PFM_LOG_EMERG,
@@ -187,25 +187,25 @@ pfm_retval_t pfm_start_pkt_processing(void)
 	return PFM_SUCCESS;
 }
 
-pfm_retval_t pfm_end_point_add(	const int linkId,
-				const char *kpiName,
-				const uint32_t localIpAddr,
-				const uint16_t localGtpPortNum,
+pfm_retval_t pfm_end_point_add(	const int link_id,
+				const char *kni_name,
+				const uint32_t local_ip_addr,
+				const uint16_t local_gtp_port_no,
                         	const end_point_info_t ep[],
-				const int epCount)
+				const int ep_count)
 {
-	printf("linkId=%d, kpiName=%p, lIp=%d, port=%d, ep=%p, epCount=%d\n",
-		linkId,kpiName,localIpAddr,localGtpPortNum,ep,epCount);
+	printf("link_id=%d, kni_name=%p, lIp=%d, port=%d, ep=%p, ep_count=%d\n",
+		link_id,kni_name,local_ip_addr,local_gtp_port_num,ep,ep_count);
 	return 1;
 }
 
-void pfm_data_req(	const uint32_t remoteIp,
-			const uint16_t portNum,
-			const uint16_t tunnelId,
+void pfm_data_req(	const uint32_t remote_ip,
+			const uint16_t port_num,
+			const uint16_t tunnel_id,
 			struct rte_mbuf *mbuf)
 {
-	printf("remoteIp=%d,portNum=%d,tunnelId=%d,mbuf=%p\n",
-			remoteIp,portNum, tunnelId, mbuf);
+	printf("remote_ip=%d,port_num=%d,tunnel_id=%d,mbuf=%p\n",
+			remote_ip,port_num, tunnel_id, mbuf);
 	return;
 }
 void pfm_terminate(void)
@@ -214,11 +214,11 @@ void pfm_terminate(void)
 	return;
 }
 
-void LinkStateChangeCallback(int linkId, ops_state_t opsState)
+void link_state_change_callback(int link_id, ops_state_t ops_state)
 {
-	printf("Link state of link %d changed to %s\n",linkId,
+	printf("Link state of link %d changed to %s\n",link_id,
                 (( OPSSTATE_ENABLED == opsState) ? "ENABLED": "DISABLED"));
-	KniStateChange(linkId,opsState);
+	KniStateChange(link_id,ops_State);
 }
 
 

@@ -35,7 +35,7 @@ static const unsigned char defaultMacAddr[MAC_ADDR_SIZE] =
  *
  * function to monitor link operational state.  This function is run
  * as a child pthread. When  state change is detected, it will invoke
- * the call back funtion LinkStateChangeCallback() which need to be 
+ * the call back funtion link_state_change_call_back() which need to be 
  * implemeted by appliacion.
  *
  * Args: 
@@ -75,7 +75,7 @@ static void *linkStateMonitorPThreadFunc(__attribute__((unused)) void *arg)
 				/* ops state change detected for this link
 				   invoke callback function */
 				LinkInfoList[i].opsState = currState;
-				LinkStateChangeCallback(
+				link_state_change_call_back(
 					LinkInfoList[i].linkId,currState);
 				pfm_trace_msg(
 					"Link '%s(%d)' Ops state chaged to %s",

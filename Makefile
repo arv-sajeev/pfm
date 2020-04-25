@@ -8,14 +8,14 @@ APP = cuup.exe
 SRCS-y :=	cuup.c \
 		pfm.c \
 		pfm_log.c \
-		workerLoop.c \
-		link.c \
-		rxLoop.c \
-		txLoop.c \
-		kni.c \
+		pfm_worker_loop.c \
+		pfm_link.c \
+		pfm_rx_loop.c \
+		pfm_tx_loop.c \
+		pfm_kni.c \
 		pfm_ring.c \
-		classifier.c \
-		distLoop.c
+		pfm_classifier.c \
+		pfm_dist_loop.c
 
 # Build using pkg-config variables if possible
 ifeq ($(shell pkg-config --exists libdpdk && echo 0),0)
