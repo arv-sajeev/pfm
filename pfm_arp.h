@@ -1,35 +1,31 @@
-#ifndef __PFM_ARP_H__ 
-#define __PFM_ARP_H__ 1
+#ifndef __PFM_ROUTE_H__
+#define __PFM_ROUTE_H__ 1
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <rte_common.h>
-#include <rte_hash.h>
-#include <rte_ether.h>
-#include "pfm_comm.h"
+#include <rte_jhash.h>
+#include <pfm_comm.h>
 
-#define 
+typedef struct arp_table_entry {
+	ipv4_addr_t dst_ip_addr;
+	rte_ether_addr mac_addr;
+	uint32_t link_id;
 
-struct arp_table_entry	{
-	struct rte_ether_addr eth_addr;
-	ipv4_addr_t ip_addr[4];
-	int timeout;
-};
+} arp_t;
 
-struct arp_table	{
-	struct rte_hash* handler;
-	struct arp_entry [0];
-};
+#define MAX_ARP_TABLE_ENTRIES 32
+#define HASH_NAME "ARP_TABLE_HASH"
+#define HASH_KEY_LEN 32
+#define HASH_SEED 26
 
-int arptable_init(int size);
-
-int arptable_addentry(const ipv4_addr_t* ip_addr,
-		         const struct rte_ether_addr* mac_addr);
-
-pfm_retval arp_get_nexthop_mac_addr(const ipv4_addr_t* ip_addr,
-			            struct rte_ether_addr* mac_addr);
-
-void arp_table_print(const int fd);
+struct rte_hash_parameters hash_params = 
+{
+	.name 			= HASH_NAME,
+	.entries 		= MAX_ROUTE_TABLE_ENTRIES,
+	.reserved 		= 0,
+ 	.key_len    		= HASH_KEY_LEN,
+	.hash_func		= rte_jhash,
+	.hash_func_init_val 	= 26,
+	.socket_id		= (int)rte_socket_id()
+}
 
 
 

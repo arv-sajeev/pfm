@@ -52,24 +52,27 @@ typedef enum
 	OPSSTATE_FAULTY
 } ops_state_t;
 
-typedef unsigned char	ip_addr_t;
 
 typedef struct {
-	ip_addr_t addr_bytes[IP_ADDR_SIZE];
+	uint8_t addr_bytes[IP_ADDR_SIZE];
 } ipv4_addr_t;
+
+typedef struct{
+	uint8_t addr_bytes[MAC_ADDR_SIZE];
+} mac_addr_t
 
 typedef struct {
 	int kniIdx;
-	ip_addr_t	ip_addr[IP_ADDR_SIZE];
-	ip_addr_t	network_mask[IP_ADDR_SIZE];
-	ip_addr_t	default_gateway_ip[IP_ADDR_SIZE];
-} local_ip_addr_t;
+	ipv4_addr_t	ip_addr;
+	ipv4_addr_t	network_mask;
+	ipv4_addr_t	default_gateway_ip;
+} local_ipv4_addr_t;
 
 typedef struct {
 	int		lcore_count;
 	int		kni_count;
 	int		local_ip_count;
-	local_ip_addr_t	local_ip_addr_list[MAX_LOCAL_IP_COUNT];
+	local_ipv4_addr_t	local_ip_addr_list[MAX_LOCAL_IP_COUNT];
 	struct rte_mempool *mbuf_pool;
         struct rte_ring *rx_ring_ptr ;
         struct rte_ring *tx_ring_ptr ;
