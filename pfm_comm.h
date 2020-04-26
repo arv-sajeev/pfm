@@ -55,6 +55,7 @@ typedef enum
 
 typedef struct {
 	uint8_t addr_bytes[IP_ADDR_SIZE];
+	//uint32_t addr_number;
 } ipv4_addr_t;
 
 typedef struct{
