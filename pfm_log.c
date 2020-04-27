@@ -52,10 +52,10 @@ void pfm_log_open( const char *app_name, const pfm_log_priority_t priority)
 		.close	= NULL
 	};
 
-        long_stream = fopencookie(NULL, "w+", console_log_func);
-        if (long_stream != NULL)
+        log_stream = fopencookie(NULL, "w+", console_log_func);
+        if (log_stream != NULL)
 	{
-		rte_openlog_stream(long_stream);
+		rte_openlog_stream(log_stream);
 	}
 #endif
 

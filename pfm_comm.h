@@ -58,9 +58,20 @@ typedef struct {
 	//uint32_t addr_number;
 } ipv4_addr_t;
 
+static inline void ipv4_addr_copy(ipv4_addr_t *ip_from,ipv4_addr_t *ip_to)	{
+	
+	uint8_t *from_bytes = (uint8_t *)(ip_from->addr_bytes);
+	uint8_t *to_bytes   = (uint8_t *)(ip_to->addr_bytes);
+
+	to_bytes[0] = from_bytes[0];
+	to_bytes[1] = from_bytes[1];
+	to_bytes[2] = from_bytes[2];
+	to_bytes[3] = from_bytes[3];
+}
+
 typedef struct{
 	uint8_t addr_bytes[MAC_ADDR_SIZE];
-} mac_addr_t
+} mac_addr_t;
 
 typedef struct {
 	int kniIdx;

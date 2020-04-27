@@ -6,12 +6,12 @@
 #include <rte_ring.h>
 #include "pfm.h"
 #include "pfm_comm.h"
-#include "link.h"
+#include "pfm_link.h"
 #include "pfm_ring.h"
-#include "distLoop.h"
+#include "pfm_dist_loop.h"
 
 
-int distLoop(__attribute__((unused)) void * args)	{
+int dist_loop(__attribute__((unused)) void * args)	{
 	
 	struct rte_ring *rx_dist_ring = sys_info_g.rx_ring_ptr;
 	struct rte_ring *dist_tx_ring = sys_info_g.tx_ring_ptr;

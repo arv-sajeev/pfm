@@ -7,7 +7,7 @@
 #include "pfm.h"
 #include "pfm_log.h"
 #include "pfm_comm.h"
-#include "worker_loop.h"
+#include "pfm_worker_loop.h"
 
 /*************
  * pfm_data_ind()

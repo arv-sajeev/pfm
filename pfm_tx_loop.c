@@ -18,7 +18,7 @@ int tx_loop( __attribute__((unused)) void *args)
 
 	while(PFM_TRUE != force_quit_g)
 	{
-		rx_sz = KniRead(tx_pkts,TX_BURST_SIZE,&link_id);
+		rx_sz = kni_read(tx_pkts,TX_BURST_SIZE,&link_id);
 
 		if (0 >= rx_sz)
 		{

@@ -6,7 +6,7 @@
 
 #include "pfm.h"
 #include "pfm_comm.h"
-#include "rxLoop.h"
+#include "pfm_rx_loop.h"
 #include "pfm_link.h"
 #include "pfm_classifier.h"
 

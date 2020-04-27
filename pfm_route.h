@@ -20,12 +20,34 @@ typedef struct route_table_entry {
 	ipv4_addr_t	gateway_addr;
 } route_t;
 
+typedef struct route_table	{
+	struct rte_lpm *lpm_mapper;
+	route_t entries[PFM_ROUTE_LPM_MAX_ENTRIES];
+} route_table_t;
 
-struct rte_lpm_config	{
+
+struct rte_lpm_config pfm_lpm_config = {
+
 	.max_rules 	= 	PFM_ROUTE_LPM_MAX_ENTRIES,
 	.number_tbl8s 	=	PFM_ROUTE_LPM_MAX_TBL8S,
 	.flags		= 	PFM_ROUTE_LPM_FLAGS
-} pfm_lpm_config;
+
+} ;
+
+
+/*****************
+ *
+ * 	Function to craete lpm handler using the pfm_lpm_config structure provided
+ *	@params
+ *	 void
+ *
+ * 	@returns
+ * 	 - 0 if success, -1 on error
+ *
+ *
+ * **************/
+ 
+ int lpm_init(void);
 
 
 /*****************
@@ -47,7 +69,7 @@ struct rte_lpm_config	{
  *****************/
 
 
-int route_add(uint16_t link_id,ipv4_addr_t net_mask,uint8_t net_mask_depth,ipv4_addr_t gateway_addr);
+int route_add(uint16_t link_id,ipv4_addr_t* net_mask,uint8_t net_mask_depth,ipv4_addr_t* gateway_addr);
 
 
 /********************
@@ -64,7 +86,7 @@ int route_add(uint16_t link_id,ipv4_addr_t net_mask,uint8_t net_mask_depth,ipv4_
  *
  *********************/
 
-route_t *route_query(ipv4_addr_t ip_addr);
+route_t *route_query(ipv4_addr_t* ip_addr);
 
 /**********************
  *
@@ -78,4 +100,6 @@ route_t *route_query(ipv4_addr_t ip_addr);
  *
  **********************/
 
-void route_print(const FILE *fp);
+void route_print(FILE *fp);
+
+#endif

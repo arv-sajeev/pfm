@@ -8,7 +8,7 @@
 #include "pfm_link.h"
 #include "pfm_rx_loop.h"
 #include "pfm_tx_loop.h"
-#include "dist_loop.h"
+#include "pfm_dist_loop.h"
 #include "pfm_worker_loop.h"
 #include "pfm_classifier.h"
 #include "pfm_kni.h"
@@ -190,7 +190,7 @@ pfm_retval_t pfm_start_pkt_processing(void)
 pfm_retval_t pfm_end_point_add(	const int link_id,
 				const char *kni_name,
 				const uint32_t local_ip_addr,
-				const uint16_t local_gtp_port_no,
+				const uint16_t local_gtp_port_num,
                         	const end_point_info_t ep[],
 				const int ep_count)
 {
@@ -217,8 +217,8 @@ void pfm_terminate(void)
 void link_state_change_callback(int link_id, ops_state_t ops_state)
 {
 	printf("Link state of link %d changed to %s\n",link_id,
-                (( OPSSTATE_ENABLED == opsState) ? "ENABLED": "DISABLED"));
-	KniStateChange(link_id,ops_State);
+                (( OPSSTATE_ENABLED == ops_state) ? "ENABLED": "DISABLED"));
+	link_state_change(link_id,ops_state);
 }
 
 

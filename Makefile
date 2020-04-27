@@ -15,7 +15,8 @@ SRCS-y :=	cuup.c \
 		pfm_kni.c \
 		pfm_ring.c \
 		pfm_classifier.c \
-		pfm_dist_loop.c
+		pfm_dist_loop.c \
+		pfm_route.c
 
 # Build using pkg-config variables if possible
 ifeq ($(shell pkg-config --exists libdpdk && echo 0),0)
