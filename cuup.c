@@ -4,6 +4,7 @@
 
 #include "pfm.h"
 #include "pfm_comm.h"
+#include "pfm_cli.h"
 
 #define GTP_PORTNO	2152
 
@@ -30,6 +31,7 @@ static void signal_handler(int sig_num)
 int main(int argc, char *argv[])
 {
 	pfm_retval_t ret_val;
+	pfm_cli_retval_t cli_ret_val;
 	int ret;
 	int lcore_id;
 
@@ -75,6 +77,15 @@ int main(int argc, char *argv[])
 			"DPPF_StartPktProcessing() failed");
 		terminate_program();
 		exit(2);
+	}
+
+	pfm_cli_init();
+
+	cli_ret_val = PFM_CLI_CONTINUE;
+
+	while ((PFM_CLI_EXIT != cli_ret_val) && 
+	       (PFM_CLI_SHUTDOWN != cli_ret_val))	{
+		cli_ret_val = pfm_cli_exec(stdin,stdout);
 	}
 
 	RTE_LCORE_FOREACH_SLAVE(lcore_id)

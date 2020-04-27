@@ -15,5 +15,6 @@ int kni_read(    struct rte_mbuf *pkt_burst[],
                 int *link_id);
 
 void kni_state_change(const int link_id,const ops_state_t desired_state);
-
+void kni_ipv4_list_print(FILE *fp);
+void kni_ipv4_show_print(FILE *fp,char *kni_name);
 #endif

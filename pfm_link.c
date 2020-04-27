@@ -23,10 +23,10 @@ typedef struct {
 	ops_state_t      ops_state;
 } link_info_t;
 
-static int 		link_count;
-static link_info_t	link_info_list[MAX_LINK_COUNT];
-static pthread_t	link_mon_thread_id = 0;
-static const unsigned char default_mac_addr[MAC_ADDR_SIZE] =
+static int 		link_count_g;
+static link_info_t	link_info_list_g[MAX_LINK_COUNT];
+static pthread_t	link_mon_thread_id_g = 0;
+static const unsigned char default_mac_addr_g[MAC_ADDR_SIZE] =
         { 0x06, 0x0A0, 0xB0, 0xC0, 0xD0, 0xE0 };
 
 /**************************
@@ -57,10 +57,10 @@ static void *link_statemonitor_pthread_func(__attribute__((unused)) void *arg)
                 rte_delay_ms(500); // do it every 0.5 seconds
 		
 		/* check state of all currently configured links */
-		for(i=0; i < link_count; i++)
+		for(i=0; i < link_count_g; i++)
 		{
 			rte_eth_link_get_nowait(
-				link_info_list[i].link_id, &link_info);
+				link_info_list_g[i].link_id, &link_info);
 			if (link_info.link_status == ETH_LINK_UP)
 			{
 				curr_state = OPSSTATE_ENABLED;
@@ -70,17 +70,17 @@ static void *link_statemonitor_pthread_func(__attribute__((unused)) void *arg)
 			{
 				curr_state = OPSSTATE_DISABLED;
 			}
-			if (curr_state != link_info_list[i].ops_state)
+			if (curr_state != link_info_list_g[i].ops_state)
 			{
 				/* ops state change detected for this link
 				   invoke callback function */
-				link_info_list[i].ops_state = curr_state;
+				link_info_list_g[i].ops_state = curr_state;
 				link_state_change_callback(
-					link_info_list[i].link_id,curr_state);
+					link_info_list_g[i].link_id,curr_state);
 				pfm_trace_msg(
 					"Link '%s(%d)' Ops state chaged to %s",
-					link_info_list[i].name,
-					link_info_list[i].link_id,
+					link_info_list_g[i].name,
+					link_info_list_g[i].link_id,
 					((curr_state == OPSSTATE_ENABLED)?
 						"ENABLED" : "DISABLED"));
 			}
@@ -105,23 +105,23 @@ static pfm_retval_t link_start(int link_id)
 	int idx;
 	int ret;
 	
-	for (idx=0; idx <= link_count;idx++)
+	for (idx=0; idx <= link_count_g;idx++)
 	{
-		if(link_info_list[idx].link_id == link_id)
+		if(link_info_list_g[idx].link_id == link_id)
 		{
 			break;
 		}
 	}
-	if (idx > link_count)
+	if (idx > link_count_g)
 	{
 		pfm_log_rte_err(PFM_LOG_ERR,
 			"Invalid link_id=%d passed to link_start(). "
 			"Need to be less than or equal to link_count=%d.",
-			link_id,link_count);
+			link_id,link_count_g);
 		return PFM_FAILED;
 	}
 
-	info_ptr = &link_info_list[idx];
+	info_ptr = &link_info_list_g[idx];
 
 	ret = rte_eth_dev_is_valid_port(link_id);
 	if (1 != ret)
@@ -175,7 +175,7 @@ static pfm_retval_t link_start(int link_id)
 			info_ptr->name,
 			link_id);
 		/* Assign a non-zero MAC address */
-		memcpy(addr.addr_bytes,default_mac_addr,MAC_ADDR_SIZE);
+		memcpy(addr.addr_bytes,default_mac_addr_g,MAC_ADDR_SIZE);
 		addr.addr_bytes[5] |= link_id;
 		ret = rte_eth_dev_default_mac_addr_set(link_id,
 		     (struct rte_ether_addr *)info_ptr->mac_addr);
@@ -302,24 +302,24 @@ static pfm_retval_t link_stop(int link_id)
 	int idx;
 	char *link_name;
 
-	for (idx=0; idx < link_count;idx++)
+	for (idx=0; idx < link_count_g;idx++)
 	{
-		if(link_info_list[idx].link_id == link_id)
+		if(link_info_list_g[idx].link_id == link_id)
 		{
 			break;
 		}
 	}
 
-        if (idx >= link_count)
+        if (idx >= link_count_g)
         {
                 pfm_log_rte_err(PFM_LOG_ERR,
                         "Invalid link_id=%d passed to link_stop(). "
                         "Need to be less than or equal to link_count=%d.",
-                        link_id,link_count);
+                        link_id,link_count_g);
                 return PFM_FAILED;
         }
 
-	link_name = link_info_list[idx].name;
+	link_name = link_info_list_g[idx].name;
 
 	/* free mbufs currently cached by the driver */
 	ret = rte_eth_tx_done_cleanup(link_id,0,0); //FAIL
@@ -407,20 +407,20 @@ int pfm_link_open(const char *link_name)
 	int ret;
 	int i;
 	
-	for (i=0; i < link_count; i++)
+	for (i=0; i < link_count_g; i++)
 	{
-		ret = strcmp(link_info_list[i].name,link_name);
+		ret = strcmp(link_info_list_g[i].name,link_name);
 		if (0 == ret)
 		{
 			pfm_trace_msg("Link '%s' is already open. "
 				"No need to open it again. "
 				"Re-using it.",
 				link_name);
-			return link_info_list[i].link_id;
+			return link_info_list_g[i].link_id;
 		}
 	}
 
-	if (MAX_LINK_COUNT <= link_count)
+	if (MAX_LINK_COUNT <= link_count_g)
 	{
 		pfm_trace_msg("Can't open link '%s'. "
 				"Max links %d alread opened. ",
@@ -438,11 +438,11 @@ int pfm_link_open(const char *link_name)
                 return (-2);
         }
 
-	link_info_list[link_count].link_id = link_id;
-	strncpy(link_info_list[link_count].name,link_name,MAX_LINK_NAME_LEN);
-	link_info_list[link_count].name[MAX_LINK_NAME_LEN]=0;
+	link_info_list_g[link_count_g].link_id = link_id;
+	strncpy(link_info_list_g[link_count_g].name,link_name,MAX_LINK_NAME_LEN);
+	link_info_list_g[link_count_g].name[MAX_LINK_NAME_LEN]=0;
 
-	ret_val = link_start(link_count);
+	ret_val = link_start(link_count_g);
 	if (PFM_SUCCESS != ret_val)
 	{
 		pfm_log_msg(PFM_LOG_ERR,
@@ -451,9 +451,9 @@ int pfm_link_open(const char *link_name)
                 return (-3);
 	}
 
-	if (0 == link_mon_thread_id)
+	if (0 == link_mon_thread_id_g)
 	{
-		ret = rte_ctrl_thread_create(&link_mon_thread_id,
+		ret = rte_ctrl_thread_create(&link_mon_thread_id_g,
 				"Link Monitor thread", NULL,
 				link_statemonitor_pthread_func, NULL);
 		if (0 != ret)
@@ -463,7 +463,7 @@ int pfm_link_open(const char *link_name)
 		}
 	}
 
-	link_count++;
+	link_count_g++;
         return link_id;
 
 }
@@ -489,17 +489,17 @@ void pfm_link_close(const char *link_name)
 	pfm_retval_t	ret_val;
 
 	int i;
-	for (i=0; i < link_count; i++)
+	for (i=0; i < link_count_g; i++)
 	{
-		ret = strcmp(link_info_list[i].name,link_name);
+		ret = strcmp(link_info_list_g[i].name,link_name);
 		if (0 == ret)
 		{
-			ret_val = link_stop(link_info_list[i].link_id);
+			ret_val = link_stop(link_info_list_g[i].link_id);
 			if (PFM_SUCCESS != ret_val)
 			{
 				pfm_log_msg(PFM_LOG_WARNING,
 					"link_stop(link_id=%d) faile",
-					link_info_list[i].link_id);
+					link_info_list_g[i].link_id);
 			}
 			return;
 		}
@@ -548,19 +548,19 @@ int link_read(struct rte_mbuf *rx_pkts[],uint16_t burst_size,uint16_t *port)
 
 		/* check the link only if the link is in enabled state*/
 		if (OPSSTATE_ENABLED ==
-			link_info_list[next_read].ops_state)
+			link_info_list_g[next_read].ops_state)
 		{
 			rx_sz = rte_eth_rx_burst(
-					link_info_list[next_read].link_id,
+					link_info_list_g[next_read].link_id,
                                         0, rx_pkts, burst_size);
 
 			/* store the link_id in output argument */
-			*port = link_info_list[next_read].link_id;
+			*port = link_info_list_g[next_read].link_id;
 		}
 
 		/* Next iteration shold check next link in round robin.*/
 		next_read++;
-		if (next_read >= link_count)
+		if (next_read >= link_count_g)
 		{
 			// wrap around
 			next_read = 0;
@@ -648,3 +648,68 @@ void link_state_change(const int link_id,const ops_state_t desired_state)
 	return;
 }
 
+void pfm_link_list_print(FILE *fp)
+{
+	int idx;
+
+	fprintf(fp,"   %-2s %-12s   %-18s  STATE\n",
+			"ID","LINK NAME","MAC ADDRESS");	
+	for(idx=0; idx < link_count_g; idx++)
+	{
+		fprintf(fp,"   %-2d %-12s   "
+				"%02X:%02X:%02X:%02X:%02X:%02X   %s\n",
+			link_info_list_g[idx].link_id,
+			link_info_list_g[idx].name,
+			link_info_list_g[idx].mac_addr[0],
+			link_info_list_g[idx].mac_addr[1],
+			link_info_list_g[idx].mac_addr[2],
+			link_info_list_g[idx].mac_addr[3],
+			link_info_list_g[idx].mac_addr[4],
+			link_info_list_g[idx].mac_addr[5],
+			((OPSSTATE_ENABLED==link_info_list_g[idx].ops_state)
+				? "ENABLED" : "DISABLED"));
+	}
+}
+
+void pfm_link_show_print(FILE *fp, int link_id)
+{
+	int idx;
+	for (idx=0; idx < link_count_g; idx++)
+	{
+		if (link_info_list_g[idx].link_id == link_id)
+			break;
+	}
+	if (idx < link_count_g)
+	{
+		fprintf(fp,"   %-10s= %d\n", "Link ID",
+			link_info_list_g[idx].link_id);
+		fprintf(fp,"   %-10s= %s\n", "Name",
+			link_info_list_g[idx].name);
+		fprintf(fp,"   %-10s= %02X:%02X:%02X:%02X:%02X:%02X\n",
+			"MAC Addr",
+			link_info_list_g[idx].mac_addr[0],
+			link_info_list_g[idx].mac_addr[1],
+			link_info_list_g[idx].mac_addr[2],
+			link_info_list_g[idx].mac_addr[3],
+			link_info_list_g[idx].mac_addr[4],
+			link_info_list_g[idx].mac_addr[5]);
+		fprintf(fp,"   %-10s= %d\n",
+			"MTU",
+			link_info_list_g[idx].mtu);
+		fprintf(fp,"   %-10s= %d\n",
+			"Min MTU",
+			link_info_list_g[idx].min_mtu);
+		fprintf(fp,"   %-10s= %d\n",
+			"Max MTU",
+			link_info_list_g[idx].max_mtu);
+		fprintf(fp,"   %-10s= %s\n",
+			"State",
+			((OPSSTATE_ENABLED==link_info_list_g[idx].ops_state)
+				? "ENABLED" : "DISABLED"));
+	}
+	else
+	{
+		fprintf(fp,"ERROR: Link with ID %d does not exist\n",
+			link_id);
+	}
+}

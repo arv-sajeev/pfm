@@ -25,15 +25,16 @@ typedef struct
 	struct		rte_kni *ptr;
 	char		name[RTE_KNI_NAMESIZE+1];
 	unsigned char	ip_addr[IP_ADDR_SIZE];
+	unsigned char	mac_addr[MAC_ADDR_SIZE];
 	int		subnet_mask_len;
 	int		link_id;
 	ops_state_t	ops_state;
 	admin_state_t	admin_state;
 } kni_info_t;
 
-static int kni_count = 0;
-static kni_info_t kni_info_list[MAX_KNI_PORTS];
-static const unsigned char default_mac_addr[MAC_ADDR_SIZE] =
+static int kni_count_g = 0;
+static kni_info_t kni_info_list_g[MAX_KNI_PORTS];
+static const unsigned char default_mac_addr_g[MAC_ADDR_SIZE] =
 	{ 0x06, 0x10, 0x20, 0x30, 0x40, 0x50 };
 
 /* Callback function which is invoked when MTU is changed*/
@@ -148,7 +149,7 @@ static int kni_config_network_if(uint16_t kni_id, uint8_t kni_state)
 	ops_state_t new_ops_state;
 	int idx;
 
-	if (kni_id >= kni_count)
+	if (kni_id >= kni_count_g)
 	{
 		pfm_log_msg(PFM_LOG_ERR,
 			"Invalid KniId=%d passed to kni_config_network_if()",
@@ -156,7 +157,7 @@ static int kni_config_network_if(uint16_t kni_id, uint8_t kni_state)
 		return 0;
 	}
 
-	if ( NULL == kni_info_list[kni_id].ptr) 
+	if ( NULL == kni_info_list_g[kni_id].ptr) 
 	{
 		pfm_log_rte_err(PFM_LOG_ERR,
 			"KNI ptr for kni_id=%d is null",kni_id);
@@ -164,21 +165,21 @@ static int kni_config_network_if(uint16_t kni_id, uint8_t kni_state)
 	}
 
 	pfm_trace_msg("Kni %s(%d) state changed to %s",
-			kni_info_list[kni_id].name,
+			kni_info_list_g[kni_id].name,
 			kni_id,
 			((ETH_LINK_UP == kni_state) ? "UP": "DOWN"));
 
 	if (ETH_LINK_UP == kni_state)
 	{
 		new_ops_state = OPSSTATE_ENABLED;
-		kni_info_list[kni_id].ops_state = OPSSTATE_ENABLED;
+		kni_info_list_g[kni_id].ops_state = OPSSTATE_ENABLED;
 	}
 	else
 	{
 		new_ops_state = OPSSTATE_DISABLED;
-		kni_info_list[kni_id].ops_state = OPSSTATE_DISABLED;
+		kni_info_list_g[kni_id].ops_state = OPSSTATE_DISABLED;
 	}
-	link_id = kni_info_list[kni_id].link_id;
+	link_id = kni_info_list_g[kni_id].link_id;
 
 	if (OPSSTATE_ENABLED == new_ops_state )
 	{
@@ -192,18 +193,18 @@ static int kni_config_network_if(uint16_t kni_id, uint8_t kni_state)
 	{
 		/* if all the knis associated with alink is in diabled state
 		   the the link can be dissabled */
-		for(idx=0; idx < kni_count; idx++)
+		for(idx=0; idx < kni_count_g; idx++)
 		{
-			if ( kni_info_list[idx].link_id == link_id) 
+			if ( kni_info_list_g[idx].link_id == link_id) 
 			{
-				if(kni_info_list[idx].ops_state !=
+				if(kni_info_list_g[idx].ops_state !=
 							OPSSTATE_DISABLED)
 				{
 					break;
 				}
 			}
 		}
-		if (idx < kni_count)
+		if (idx < kni_count_g)
 		{
 			/* atlest one KNI which is mapped to the Link is
 			   still in enabled state. Hence the link
@@ -221,7 +222,7 @@ static int kni_config_network_if(uint16_t kni_id, uint8_t kni_state)
 		}
 	}
 	pfm_trace_msg("KNI '%s' state changed to %s",
-			kni_info_list[kni_id].name,
+			kni_info_list_g[kni_id].name,
 			((new_ops_state == OPSSTATE_ENABLED) ?
 				"UP":"DOWN"));
 	return 0;
@@ -277,12 +278,12 @@ void kni_state_change(const int link_id,const ops_state_t desired_state)
 	static pfm_bool_t first_call = PFM_TRUE;
 	pfm_retval_t ret_val;
 
-	for(idx=0; idx < kni_count; idx++)
+	for(idx=0; idx < kni_count_g; idx++)
 	{
-		if ( (kni_info_list[idx].link_id == link_id) &&
-			(kni_info_list[idx].ptr != NULL))
+		if ( (kni_info_list_g[idx].link_id == link_id) &&
+			(kni_info_list_g[idx].ptr != NULL))
 		{
-			kni_set_state(&kni_info_list[idx],desired_state);
+			kni_set_state(&kni_info_list_g[idx],desired_state);
 		}
 	}
 
@@ -293,19 +294,19 @@ void kni_state_change(const int link_id,const ops_state_t desired_state)
 
 	first_call = PFM_FALSE;
 
-	for(idx=0; idx < kni_count; idx++)
+	for(idx=0; idx < kni_count_g; idx++)
 	{
-		ret_val = ip_addr_config(kni_info_list[idx].name,
-				kni_info_list[idx].ops_state,
-				kni_info_list[idx].ip_addr, 
-				kni_info_list[idx].subnet_mask_len);
+		ret_val = ip_addr_config(kni_info_list_g[idx].name,
+				kni_info_list_g[idx].ops_state,
+				kni_info_list_g[idx].ip_addr, 
+				kni_info_list_g[idx].subnet_mask_len);
 		if (PFM_SUCCESS != ret_val)
 		{
 			pfm_log_msg(PFM_LOG_ERR,
 				"Failed to %s IP Addr to KNI=%s",
-				((kni_info_list[idx].ops_state == OPSSTATE_ENABLED) ?
+				((kni_info_list_g[idx].ops_state == OPSSTATE_ENABLED) ?
 					"ADD" : "REMOVE"),
-				kni_info_list[idx].name);
+				kni_info_list_g[idx].name);
 		}
 	}
 
@@ -325,7 +326,7 @@ struct rte_kni *kni_open(const int link_id,
 	int idx;
         
 	/* Initialize KNI subsystem if it is the 1st port*/
-	if (0 == kni_count)
+	if (0 == kni_count_g)
 	{
 		ret_val = rte_kni_init(MAX_KNI_PORTS);
 		if (0 != ret_val)
@@ -337,9 +338,9 @@ struct rte_kni *kni_open(const int link_id,
 		pfm_trace_msg("Initialized KNI subsystem");
 	}
 
-	for(idx=0; idx < kni_count; idx++)
+	for(idx=0; idx < kni_count_g; idx++)
 	{
-		if (0 == strcmp(kni_info_list[idx].name,kni_name))
+		if (0 == strcmp(kni_info_list_g[idx].name,kni_name))
 		{
 			pfm_log_msg(PFM_LOG_WARNING,
 				"KNI with name %s already exists. "
@@ -349,12 +350,12 @@ struct rte_kni *kni_open(const int link_id,
 		}
 	}
 
-	if (kni_count >= MAX_KNI_PORTS)
+	if (kni_count_g >= MAX_KNI_PORTS)
 	{
 		pfm_log_msg(PFM_LOG_ERR,
 			"Trying to open too many (%d) KNI ports. "
 			"Only %d is allowed. Request failed.",
-			(kni_count+1),MAX_KNI_PORTS);
+			(kni_count_g+1),MAX_KNI_PORTS);
 		return NULL;
 	}
 
@@ -373,7 +374,7 @@ struct rte_kni *kni_open(const int link_id,
                         (struct rte_ether_addr *)&conf.mac_addr);
         if (ret != 0)
         {
-		memcpy(conf.mac_addr,default_mac_addr,MAC_ADDR_SIZE);
+		memcpy(conf.mac_addr,default_mac_addr_g,MAC_ADDR_SIZE);
 		pfm_log_rte_err(PFM_LOG_WARNING,
 			"Not able to get MAC address for link %d. "
 			"rte_eth_macaddr_get() failed. "
@@ -417,7 +418,7 @@ struct rte_kni *kni_open(const int link_id,
 	}
 
 	memset(&ops, 0, sizeof(ops));
-	ops.port_id = kni_count;
+	ops.port_id = kni_count_g;
 	ops.change_mtu = kni_change_mtu;
 	ops.config_network_if = kni_config_network_if;
 	ops.config_mac_address = NULL;
@@ -442,12 +443,14 @@ struct rte_kni *kni_open(const int link_id,
 			conf.max_mtu);
 
 
-	kni_info_list[kni_count].ptr = kni_ptr;
-	strncpy(kni_info_list[kni_count].name,kni_name,RTE_KNI_NAMESIZE);
-	memcpy(kni_info_list[kni_count].ip_addr,ip_addr,IP_ADDR_SIZE);
-	kni_info_list[kni_count].subnet_mask_len = subnet_mask_len;
-	kni_info_list[kni_count].link_id = link_id;
-	kni_count++;
+	kni_info_list_g[kni_count_g].ptr = kni_ptr;
+	strncpy(kni_info_list_g[kni_count_g].name,kni_name,RTE_KNI_NAMESIZE);
+	memcpy(kni_info_list_g[kni_count_g].ip_addr,ip_addr,IP_ADDR_SIZE);
+	kni_info_list_g[kni_count_g].subnet_mask_len = subnet_mask_len;
+	kni_info_list_g[kni_count_g].link_id = link_id;
+	memcpy(kni_info_list_g[kni_count_g].mac_addr,
+				conf.mac_addr,MAC_ADDR_SIZE);
+	kni_count_g++;
 	return kni_ptr;
 }
 
@@ -463,20 +466,20 @@ void kni_close(struct rte_kni *kni)
 		return;
 	}
 
-	for (idx=0; idx < kni_count; idx++)
+	for (idx=0; idx < kni_count_g; idx++)
 	{
-		if (kni_info_list[idx].ptr == kni)
+		if (kni_info_list_g[idx].ptr == kni)
 		{
 			break;
 		}
 	}
-	if (idx >= kni_count)
+	if (idx >= kni_count_g)
 	{
 		pfm_log_rte_err(PFM_LOG_WARNING,
 			"Unknow KNI pointer %p passed to kni_close()",kni);
 		return;
 	}
-	kni_info_list[idx].ptr = NULL;
+	kni_info_list_g[idx].ptr = NULL;
 	ret = rte_kni_release(kni);
 	if (0 != ret)
 	{
@@ -484,7 +487,7 @@ void kni_close(struct rte_kni *kni)
 		return;
 	}
 	pfm_trace_msg("Released KNI interface '%s(%d)'",
-			kni_info_list[idx].name, idx);
+			kni_info_list_g[idx].name, idx);
 	return;
 }
 
@@ -557,33 +560,33 @@ int kni_read(	struct rte_mbuf *pkt_burst[],
 	do
 	{
 		rx_sz = 0;
-		if (NULL != kni_info_list[next_read].ptr)
+		if (NULL != kni_info_list_g[next_read].ptr)
 		{
 			rte_kni_handle_request(
-				kni_info_list[next_read].ptr);
+				kni_info_list_g[next_read].ptr);
 
 			/* check only if the kni is in unlocked state*/
 	                if (OPSSTATE_ENABLED ==
-	                        kni_info_list[next_read].ops_state)
+	                        kni_info_list_g[next_read].ops_state)
 	                {
-				if (kni_info_list[next_read].ptr != NULL)
+				if (kni_info_list_g[next_read].ptr != NULL)
 				{
 					rx_sz = rte_kni_rx_burst(
-					     kni_info_list[next_read].ptr,
+					     kni_info_list_g[next_read].ptr,
 						pkt_burst,
 						burst_size);
 
                      		  	/* store the kni name in output
 					   argument */
 					*link_id =
-					   kni_info_list[next_read].link_id;
+					   kni_info_list_g[next_read].link_id;
 				};
 			};
 		}
 
                 /* Next iteration shold check next KNI in round robin.*/
                 next_read++;
-                if (next_read>= kni_count)
+                if (next_read>= kni_count_g)
                 {
                         // wrap around
                         next_read= 0;
@@ -601,5 +604,89 @@ int kni_read(	struct rte_mbuf *pkt_burst[],
 	/* non of the enabled knis have packets. hence return 0 */
 
 	return 0;
+}
+
+void kni_ipv4_list_print(FILE *fp)
+{
+	char ip_addr[20];
+	int idx;
+
+	fprintf(fp,"   %-10s %-18s %-18s %s\n",
+		"NAME",
+		"IP ADDRESS",
+		"MAC ADDRESS",
+		"LINK");
+	for(idx=0; idx < kni_count_g; idx++)
+	{
+		sprintf(ip_addr,"%d.%d.%d.%d/%d",
+			kni_info_list_g[idx].ip_addr[0],
+			kni_info_list_g[idx].ip_addr[1],
+			kni_info_list_g[idx].ip_addr[2],
+			kni_info_list_g[idx].ip_addr[3],
+			kni_info_list_g[idx].subnet_mask_len);
+
+		fprintf(fp,"   %-10s %-18s "
+			"%02X:%02X:%02X:%02X:%02X:%02X  %d\n",
+			kni_info_list_g[idx].name,
+			ip_addr,
+			kni_info_list_g[idx].mac_addr[0],
+			kni_info_list_g[idx].mac_addr[1],
+			kni_info_list_g[idx].mac_addr[2],
+			kni_info_list_g[idx].mac_addr[3],
+			kni_info_list_g[idx].mac_addr[4],
+			kni_info_list_g[idx].mac_addr[5],
+			kni_info_list_g[idx].link_id);
+	}
+}
+
+void kni_ipv4_show_print(FILE *fp, char *kni_name)
+{
+	char ip_addr[20];
+	int idx;
+	int len;
+
+	len = strlen(kni_name);
+
+	for(idx=0; idx < kni_count_g; idx++)
+	{
+		if ( 0 == strncasecmp(kni_name,
+				kni_info_list_g[idx].name, len))
+		{
+			break;
+		}
+	}
+
+	if (idx >= kni_count_g)
+	{
+		fprintf(fp,"IfName '%s' does not exists\n",kni_name);
+		return;
+	}
+	sprintf(ip_addr,"%d.%d.%d.%d/%d",
+			kni_info_list_g[idx].ip_addr[0],
+			kni_info_list_g[idx].ip_addr[1],
+			kni_info_list_g[idx].ip_addr[2],
+			kni_info_list_g[idx].ip_addr[3],
+			kni_info_list_g[idx].subnet_mask_len);
+
+	fprintf(fp,"   %-10s- %s\n","Name",kni_info_list_g[idx].name);
+	fprintf(fp,"   %-10s- %s\n","IP Addr",ip_addr);
+	fprintf(fp,"   %-10s- %02X:%02X:%02X:%02X:%02X:%02X\n",
+			"MAC Addr",
+			kni_info_list_g[idx].mac_addr[0],
+			kni_info_list_g[idx].mac_addr[1],
+			kni_info_list_g[idx].mac_addr[2],
+			kni_info_list_g[idx].mac_addr[3],
+			kni_info_list_g[idx].mac_addr[4],
+			kni_info_list_g[idx].mac_addr[5]);
+	fprintf(fp,"   %-10s- %d\n","Link Id",kni_info_list_g[idx].link_id);
+	fprintf(fp,"   %-10s- %s\n","Ops State",
+		((kni_info_list_g[idx].ops_state==OPSSTATE_ENABLED) ?
+				"ENABLED" : "DISABLED"));
+	fprintf(fp,"   %-10s- %s\n","Admn State",
+			((kni_info_list_g[idx].admin_state
+				== ADMSTATE_LOCKED) ?
+				"LOCKED" : "UNLOCKED"));
+	fprintf(fp,"   %-10s- %p\n","KNI Ptr",kni_info_list_g[idx].ptr);
+	return;
 }
 
