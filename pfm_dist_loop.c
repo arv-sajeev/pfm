@@ -26,8 +26,7 @@ int dist_loop(__attribute__((unused)) void * args)	{
 		    "Started distributor on lcore [%d]",
 		    rte_lcore_id());
 
-	printf("Started distributor on lcore [%d]",
-		rte_lcore_id());
+	printf("Started distributor on lcore [%d]",rte_lcore_id());
 
 	while (force_quit_g != PFM_TRUE)	{
 		// Get packets from the ring
@@ -40,8 +39,7 @@ int dist_loop(__attribute__((unused)) void * args)	{
 			pfm_trace_msg("Received %d packets from rx_loop on distLoop",
 			      	      rx_sz);
 
-			printf("Received %d packets from rx_loop on distLoop\n",
-				rx_sz);
+			printf("Received %d packets from rx_loop on distLoop\n",rx_sz);
 		}
 		// Process these packets using distributor api 
 		
@@ -51,8 +49,7 @@ int dist_loop(__attribute__((unused)) void * args)	{
 		if (tx_sz > 0)	{
 			pfm_trace_msg("Transmitted %d packets from distLoop to various workerLoops",
 			      	       tx_sz);
-			printf("Transmitted %d packets from distLoop to various workerLoops\n",
-			      	tx_sz);
+			printf("Transmitted %d packets from distLoop to various workerLoops\n",tx_sz);
 
 		}
 		
@@ -64,8 +61,7 @@ int dist_loop(__attribute__((unused)) void * args)	{
 		if (ret_rx > 0)	{
 			pfm_trace_msg("Received %d packets from workers on distLoop",
 				      ret_rx);
-			printf("Received %d packets from workers on distLoop\n",
-				ret_rx);
+			printf("Received %d packets from workers on distLoop\n",ret_rx);
 		}
 		// Send the received packets to the txLoop
 		
@@ -76,8 +72,7 @@ int dist_loop(__attribute__((unused)) void * args)	{
 		if (ret_tx > 0)	{
 			pfm_trace_msg("Enqueued %d packets from distLoop to txLoop",
 				      ret_tx);
-			printf("Enqueued %d packets from distLoop to txLoop\n",
-			      	ret_tx);
+			printf("Enqueued %d packets from distLoop to txLoop\n",ret_tx);
 		}
 	}
 

@@ -30,8 +30,7 @@ int tx_loop( __attribute__((unused)) void *args)
 			if (rx_sz >0){
 				pfm_trace_msg("%d packets from distLoop",
 					      rx_sz);
-				printf("%d packets from distLoop\n",
-				       rx_sz);
+				//printf("%d packets from distLoop\n",rx_sz);
 				link_id = 0;
 			}
 		}
@@ -40,8 +39,7 @@ int tx_loop( __attribute__((unused)) void *args)
 			pfm_trace_msg("%d packets from KNI",
 				      rx_sz);
 
-			printf("%d packets from KNI\n",
-				      rx_sz);
+			//printf("%d packets from KNI\n",rx_sz);
 		}
 
 		if (0 >= rx_sz) continue;
@@ -52,15 +50,13 @@ int tx_loop( __attribute__((unused)) void *args)
 			      tx_sz,
 		              link_id);
 
-		printf("%d packets sent to link :: %d\n",
-			tx_sz,
-			link_id);
+		//printf("%d packets sent to link :: %d\n",tx_sz,link_id);
 
 		if (tx_sz < rx_sz)
 		{
 			/* free buffers of the droped Pkts */
 			pfm_trace_msg("Dropping packets from the txLoop");
-			printf("Dropping packets from the txLoop\n");
+			//printf("Dropping packets from the txLoop\n");
 			for (; tx_sz < rx_sz; tx_sz++)
 			{
 				rte_pktmbuf_free(tx_pkts[tx_sz]);

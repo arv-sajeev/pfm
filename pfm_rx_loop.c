@@ -18,8 +18,7 @@ int rx_loop( __attribute__((unused)) void *args)
 
 	pfm_trace_msg("rxLoop launced on lcore [%d]",
 			rte_lcore_id());
-	printf("rx_pkts launched on lcore [%d]\n",
-		rte_lcore_id());
+	//printf("rx_pkts launched on lcore [%d]\n",rte_lcore_id());
 	while(1)
 	{
 		if (PFM_FALSE != force_quit_g)

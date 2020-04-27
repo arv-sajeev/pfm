@@ -22,9 +22,7 @@ void pfm_data_ind(      const uint32_t local_ip,
                         const uint16_t tunnel_id,
                         struct rte_mbuf *mbuf)
 {
-        printf("Invoked pfm_data_ind(local_ip=%d,port_num=%d,"
-		"tunnel_id=%d,mbuf=%p\n). But not implemented\n",
-                        local_ip,port_num, tunnel_id, mbuf);
+        //printf("Invoked pfm_data_ind(local_ip=%d,port_num=%d,""tunnel_id=%d,mbuf=%p\n). But not implemented\n",local_ip,port_num, tunnel_id, mbuf);
 
 	rte_pktmbuf_free(mbuf);
         return;
@@ -52,8 +50,7 @@ int worker_loop( __attribute__((unused)) void *args)
 	
 	pfm_trace_msg("Started worker on lcore [%d]",
 		      rte_lcore_id());
-	printf("Started worker on lcore [%d]\n",
-		      rte_lcore_id());
+	//printf("Started worker on lcore [%d]\n",rte_lcore_id());
 
 	while (force_quit_g != PFM_TRUE)	{
 
@@ -69,9 +66,7 @@ int worker_loop( __attribute__((unused)) void *args)
 				      tx_sz,
 				      rte_lcore_id());
 		
-			printf("Sent %d packets back to distributor from worker core [%d]\n",
-				      tx_sz,
-				      rte_lcore_id());
+			//printf("Sent %d packets back to distributor from worker core [%d]\n",tx_sz,rte_lcore_id());
 		}
 
 
@@ -81,9 +76,7 @@ int worker_loop( __attribute__((unused)) void *args)
 				      rx_sz,
 				      rte_lcore_id());
 
-			printf("Received %d packets from distributor on worker core [%d]\n",
-				      rx_sz,
-				      rte_lcore_id());
+			//printf("Received %d packets from distributor on worker core [%d]\n",rx_sz,rte_lcore_id());
 		}
 
 		// Do some processing
@@ -94,7 +87,7 @@ int worker_loop( __attribute__((unused)) void *args)
 		       	int pkt_len = rx_pkts[i]->pkt_len;
 			pfm_trace_pkt_hdr(pkt,pkt_len,"Rx on worker [%d]",rte_lcore_id());
 			pfm_trace_pkt(pkt,pkt_len,"Rx on worker [%d]",rte_lcore_id());
-			printf("Processing packet #%d\n",i);
+			//printf("Processing packet #%d\n",i);
 
 			//Swap macs
 			

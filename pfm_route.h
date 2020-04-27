@@ -26,14 +26,6 @@ typedef struct route_table	{
 } route_table_t;
 
 
-struct rte_lpm_config pfm_lpm_config = {
-
-	.max_rules 	= 	PFM_ROUTE_LPM_MAX_ENTRIES,
-	.number_tbl8s 	=	PFM_ROUTE_LPM_MAX_TBL8S,
-	.flags		= 	PFM_ROUTE_LPM_FLAGS
-
-} ;
-
 
 /*****************
  *

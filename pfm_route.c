@@ -10,10 +10,8 @@
 #include "pfm_comm.h"
 #include "pfm_route.h"
 
-extern struct rte_lpm_config pfm_lpm_config;
 static int entry_no = 0;
 static int lpm_in = 0;
-
 static route_table_t route_table; 
 
 
@@ -23,6 +21,14 @@ int lpm_init(void)	{
 			    "LPM already initialised");
 	}
 	lpm_in = 1;
+	struct  rte_lpm_config lpm_config;
+	struct rte_lpm_config pfm_lpm_config = {
+
+        .max_rules      =       PFM_ROUTE_LPM_MAX_ENTRIES,
+        .number_tbl8s   =       PFM_ROUTE_LPM_MAX_TBL8S,
+        .flags          =       PFM_ROUTE_LPM_FLAGS
+	};
+
 	route_table.lpm_mapper = rte_lpm_create(PFM_ROUTE_LPM_NAME,
 						rte_socket_id(),
 						&pfm_lpm_config);
@@ -49,8 +55,20 @@ route_add(uint16_t link_id,ipv4_addr_t *net_mask,uint8_t net_mask_depth,ipv4_add
 				      &key);
 	if (ret)	{
 	// If present just update the routing table
-		pfm_trace_msg("Entry change in route table \nnet_mask :: %d:%d:%d:%d"
-			      "\ndepth ::%d",
+	//
+		pfm_trace_msg("Entry found for net_mask depth pair     |"
+			      "Updating entry  |"
+			      " %d:%d:%d:%d    |"
+			      "  depth ::%d    |",
+			      net_mask->addr_bytes[0],
+			      net_mask->addr_bytes[1],
+			      net_mask->addr_bytes[2],
+			      net_mask->addr_bytes[3],
+			      net_mask_depth);
+		printf("Entry found for net_mask depth pair %d    |"
+			      "Updating entry  |"
+			      " %d:%d:%d:%d    |"
+			      "  depth ::%d    |",
 			      net_mask->addr_bytes[0],
 			      net_mask->addr_bytes[1],
 			      net_mask->addr_bytes[2],
@@ -63,7 +81,6 @@ route_add(uint16_t link_id,ipv4_addr_t *net_mask,uint8_t net_mask_depth,ipv4_add
 	else if (entry_no < PFM_ROUTE_LPM_MAX_ENTRIES)	{
 	
 	// If space available fill table
-		entry_no++;	
 		key = entry_no;
 		ret = rte_lpm_add(route_table.lpm_mapper,
 				  (uint32_t)net_mask->addr_bytes,
@@ -74,13 +91,23 @@ route_add(uint16_t link_id,ipv4_addr_t *net_mask,uint8_t net_mask_depth,ipv4_add
 				    "Error in lpm entry");
 			return ret;
 		}
-		pfm_trace_msg("Entry added in route table \nnet_mask :: %d:%d:%d:%d"
-			      "\ndepth ::%d",
+		pfm_trace_msg("Entry adding new entry in route table |"
+			      "net_mask :: %d:%d:%d:%d"
+			      "depth ::%d",
 			      net_mask->addr_bytes[0],
 			      net_mask->addr_bytes[1],
 			      net_mask->addr_bytes[2],
 			      net_mask->addr_bytes[3],
 			      net_mask_depth);
+		printf("Entry adding new entry in route table |"
+			      "net_mask :: %d:%d:%d:%d"
+			      "depth ::%d",
+			      net_mask->addr_bytes[0],
+			      net_mask->addr_bytes[1],
+			      net_mask->addr_bytes[2],
+			      net_mask->addr_bytes[3],
+			      net_mask_depth);
+		entry_no++;
 	}
 	else {
 		pfm_log_msg(PFM_LOG_WARNING,
@@ -124,20 +151,28 @@ void route_print(FILE *fp)	{
 		return;
 	}
 	pfm_trace_msg("printing route table");
-	for (int i = 0;i < entry_no;i++)	{
-		fprintf(fp,"\n|Network mask :: %d:%d:%d:%d   |"
-			"|Depth :: %d   |"
-			"|Gateway address :: %d:%d:%d:%d   |",
-			route_table.entries[entry_no].net_mask.addr_bytes[0],
-			route_table.entries[entry_no].net_mask.addr_bytes[1],
-			route_table.entries[entry_no].net_mask.addr_bytes[2],
-			route_table.entries[entry_no].net_mask.addr_bytes[3],
-			route_table.entries[entry_no].net_mask_depth,
-			route_table.entries[entry_no].gateway_addr.addr_bytes[0],
-			route_table.entries[entry_no].gateway_addr.addr_bytes[1],
-			route_table.entries[entry_no].gateway_addr.addr_bytes[2],
-			route_table.entries[entry_no].gateway_addr.addr_bytes[3]);
+	if (entry_no == 0)	{
+		fprintf(fp,"Routing table is empty");
+		return;
 	}
+	fprintf(fp,"\n--------ROUTING-TABLE---------\n");
+	for (int i = 0;i < entry_no;i++)	{
+		fprintf(fp,"\n|Link id :: %d|"
+			"|Network mask :: %d:%d:%d:%d   |"
+			"|Depth :: %d   |"
+			"|Gateway address :: %d:%d:%d:%d   |\n",
+			route_table.entries[i].link_id,
+			route_table.entries[i].net_mask.addr_bytes[0],
+			route_table.entries[i].net_mask.addr_bytes[1],
+			route_table.entries[i].net_mask.addr_bytes[2],
+			route_table.entries[i].net_mask.addr_bytes[3],
+			route_table.entries[i].net_mask_depth,
+			route_table.entries[i].gateway_addr.addr_bytes[0],
+			route_table.entries[i].gateway_addr.addr_bytes[1],
+			route_table.entries[i].gateway_addr.addr_bytes[2],
+			route_table.entries[i].gateway_addr.addr_bytes[3]);
+	}
+	fprintf(fp,"\n-----------------------------\n");
 	return;
 }
 

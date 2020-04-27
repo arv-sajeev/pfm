@@ -9,6 +9,7 @@
 #include "pfm_rx_loop.h"
 #include "pfm_tx_loop.h"
 #include "pfm_dist_loop.h"
+#include "pfm_route.h"
 #include "pfm_worker_loop.h"
 #include "pfm_classifier.h"
 #include "pfm_kni.h"
@@ -115,6 +116,14 @@ pfm_retval_t pfm_init(int argc, char *argv[])
 		return PFM_FAILED;
 	}
 
+	ret = lpm_init();
+	if (ret == -1)	{
+		pfm_log_rte_err(PFM_FAILED,
+				"Failed initializing lpm"
+				"Terminating");
+	}
+	pfm_trace_msg("initialised lpm table for route entries");
+	printf("\nLPM initialised\n");
  	pfm_trace_msg("DPPF Initialization successful");
 
 	return PFM_SUCCESS;

@@ -5,6 +5,7 @@
 #include "pfm.h"
 #include "pfm_comm.h"
 #include "pfm_cli.h"
+#include  "pfm_route.h"
 
 #define GTP_PORTNO	2152
 
@@ -87,6 +88,8 @@ int main(int argc, char *argv[])
 	       (PFM_CLI_SHUTDOWN != cli_ret_val))	{
 		cli_ret_val = pfm_cli_exec(stdin,stdout);
 	}
+
+	//XXX Entering dummies to route table
 
 	RTE_LCORE_FOREACH_SLAVE(lcore_id)
 	{

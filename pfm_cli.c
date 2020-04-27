@@ -7,6 +7,7 @@
 #include "pfm_log.h"
 #include "pfm_link.h"
 #include "pfm_kni.h"
+#include "pfm_route.h"
 #include "pfm_cli.h"
 
 #define CLI_CMD_LINE_LEN	80
@@ -120,6 +121,8 @@ static pfm_cli_retval_t action_callback_route_list(FILE* fpout, char *args)
 {
 	printf("SAJEEVInvoking action_callback_route_list(fp=%p,args=%p)\n",
 			fpout,args);
+	route_print(fpout);
+
 	return PFM_CLI_CONTINUE;
 }
 
