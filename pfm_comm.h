@@ -11,6 +11,7 @@
 #define MBUF_PRIV_SIZE	0
 
 /* DPDK object names */
+#include "pfm.h"
 #define	MBUF_NAME	"MBUF"
 #define	TX_RING_NAME	"TXRING"
 #define	RX_RING_NAME	"RXRING"
@@ -53,6 +54,7 @@ typedef enum
 } ops_state_t;
 
 
+
 typedef struct {
 	uint8_t addr_bytes[IP_ADDR_SIZE];
 	//uint32_t addr_number;
@@ -70,8 +72,8 @@ static inline void ipv4_addr_copy(ipv4_addr_t *ip_from,ipv4_addr_t *ip_to)	{
 }
 
 static inline int ipv4_addr_equal(const ipv4_addr_t *ip_from,const ipv4_addr_t *ip_to)	{
-	const uint32_t *ip1 =  (const uint32_t*)ip_from.addr_bytes;
-	const uint32_t *ip2 =  (const uint32_t*)ip_to.addr_bytes;
+	const uint32_t *ip1 =  (const uint32_t*)ip_from->addr_bytes;
+	const uint32_t *ip2 =  (const uint32_t*)ip_to->addr_bytes;
 
 	return (*ip1 == *ip2);
 

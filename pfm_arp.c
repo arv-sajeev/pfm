@@ -26,8 +26,7 @@
 
 
 static arp_table_t arp_table;
-static arp_in = 0;
-static entry_no = 0;
+static int arp_in = 0;
 
 int 
 arp_init(void)	{
@@ -45,9 +44,9 @@ arp_init(void)	{
 		.hash_func		= 	rte_jhash,
 		.hash_func_init_val	=	0,
 		.socket_id		=	(int)rte_socket_id()
-	}
+	};
 
-	arp_table.hash_mapper	=	rte_lpm_create(&hash_params);
+	arp_table.hash_mapper	=	rte_hash_create(&hash_params);
 	if (arp_table.hash_mapper == NULL)	{
 		pfm_log_msg(PFM_LOG_ALERT,
 			    "Error during arp init");
@@ -67,21 +66,21 @@ arp_init(void)	{
 }
 
 static int 
-arp_clear_entry(arp_entry_t *arp_entry){
+arp_clear_entry(int key){
 	int ret;
 	struct rte_ether_addr empt_mac = {
-					.addr_bytes = {0x00,0x00,0x00,0x00,0x00,0x00
-				}
+					.addr_bytes = {0x00,0x00,0x00,0x00,0x00,0x00}
+				};
 	ipv4_addr_t empt_ip = 		{
 					.addr_bytes = {0x00,0x00,0x00,0x00}
-				}
+				};
 
-	rte_ether_addr_copy(&empt_mac,&arp_entry->mac_addr);
-	ipv4_addr_copy(&empt_ip,&arp_entry->dst_ip_addr);
-	arp_entry->try_count = 0;
-	arp_entry->link_id = 0;
+	rte_ether_addr_copy(&empt_mac,&(arp_table.entries[key].mac_addr));
+	ipv4_addr_copy(&empt_ip,&(arp_table.entries[key].dst_ip_addr));
+	arp_table.entries[key].try_count = 0;
+	arp_table.entries[key].link_id = 0;
 	pfm_trace_msg("Cleared arp entries");
-	ret = rte_timer_stop(arp_entry->refresh_timer);
+	ret = rte_timer_stop(arp_table.entries[key].refresh_timer);
 	if (ret != 0)	{
 		pfm_log_msg(PFM_LOG_ERR,
 			    "Unable to clear entry");	
@@ -93,18 +92,18 @@ arp_clear_entry(arp_entry_t *arp_entry){
 
 static int 
 arp_request_send(int key)	{
-	struct rte_mbuf *pkt = rte_mbuf_alloc_raw(sys_info_g.mbuf_pool);
+	struct rte_mbuf *pkt = rte_mbuf_raw_alloc(sys_info_g.mbuf_pool);
 	unsigned char* packet = rte_pktmbuf_mtod(pkt,unsigned char*);
 	// Pending 
-	pkt[0] = arp_table[key].addr_bytes[0];
-	pkt[1] = arp_table[key].addr_bytes[1];
-	pkt[2] = arp_table[key].addr_bytes[2];
-	pkt[3] = arp_table[key].addr_bytes[3];
-	pkt[4] = arp_table[key].addr_bytes[4];
-	pkt[5] = arp_table[key].addr_bytes[5];
+	packet[0] = arp_table.entries[key].mac_addr.addr_bytes[0];
+	packet[1] = arp_table.entries[key].mac_addr.addr_bytes[1];
+	packet[2] = arp_table.entries[key].mac_addr.addr_bytes[2];
+	packet[3] = arp_table.entries[key].mac_addr.addr_bytes[3];
+	packet[4] = arp_table.entries[key].mac_addr.addr_bytes[4];
+	packet[5] = arp_table.entries[key].mac_addr.addr_bytes[5];
 
-	int ret_tx = rte_ring_enqueue_burst(sys_info_g.dist_tx_ring,
-                                            (void *)ret_pkts,
+	int ret_tx = rte_ring_enqueue_burst(sys_info_g.tx_ring_ptr,
+                                            (void *)pkt,
                                             1,
                                             NULL);
 	pfm_trace_msg("Sent an arp packet");
@@ -113,18 +112,20 @@ arp_request_send(int key)	{
 
 static void 
 refresh_callback(__rte_unused struct rte_timer * timer,void * called_args)	{
-	callback_args* args = (callback_args*)called_args;
+	cb_args* args = (cb_args*)called_args;
+	int key = args->key;
+	uint64_t ticks = args->ticks;
 	int ret;
 	pfm_trace_msg("ARP entry timed out refresh call attempt :: %d",
-		      arp_table[args->key].try_count++);
+		      arp_table.entries[args->key].try_count++);
 	// If within retry limit retry and send an arp request
-	if (arp_table[args->key].try_count < 4)	{
+	if (arp_table.entries[args->key].try_count < 4)	{
 		args->ticks = args->ticks*2;
 		// Send an arp request
 		// PENDING
-		arp_request_send(args->key);
-		rte_timer_reset(arp_table[args->key].refresh_timer,
-				args->ticks,
+		arp_request_send(key);
+		rte_timer_reset(arp_table.entries[key].refresh_timer,
+				ticks,
 				PERIODICAL,
 				rte_lcore_id(),
 				refresh_callback,
@@ -133,7 +134,7 @@ refresh_callback(__rte_unused struct rte_timer * timer,void * called_args)	{
 
 	// Else delete the entry and kill the timer
 	else {
-		ret = arp_clear_entry(arp_table[args->key]);
+		ret = arp_clear_entry(key);
 		if (ret != 0)	{
 		pfm_log_msg(PFM_LOG_ERR,
 			    "Error clearing arp entry");
@@ -146,10 +147,9 @@ int
 arp_process_reply(struct rte_mbuf *pkt)	{
 
 	ipv4_addr_t src_ip_addr;
-	rte_ether_addr src_mac_addr;
+	struct rte_ether_addr src_mac_addr;
 	int ret,key;
-	uint64_t ticks
-
+	uint64_t ticks;
 	unsigned char* packet = rte_pktmbuf_mtod(pkt,unsigned char*);
 
 	packet += pkt->l2_len;
@@ -168,20 +168,21 @@ arp_process_reply(struct rte_mbuf *pkt)	{
 
 
 	// 1.	Check whether a hash key of the same value exist
+	uint32_t ip_lp = (uint32_t)src_ip_addr.addr_bytes;
 	key = rte_hash_lookup_data(arp_table.hash_mapper,
-				   (uint32_t)src_ip_addr.addr_bytes,
+				   (void *) &ip_lp,
 				   NULL);
 	// 	1.a. 	If already exists check if same value is in the table
 	if (key >= 0)	{
 	// 	1.b	If same value for src_ip just update the entry with new values
-		if (ipv4_addr_equal(&src_ip_addr,&(arp_table[key].dst_ip_addr)))	{
-			rte_ether_addr_copy(&src_mac_addr,&(arp_table[key].mac_addr));
+		if (ipv4_addr_equal(&src_ip_addr,&(arp_table.entries[key].dst_ip_addr)))	{
+			rte_ether_addr_copy(&src_mac_addr,&(arp_table.entries[key].mac_addr));
 			//ACHA
-			arp_table[key].link_id = 0;
-			arp_table[key].try_count = 0;
+			arp_table.entries[key].link_id = 0;
+			arp_table.entries[key].try_count = 0;
 			// Reset the timer
 			// CHECK just reset will  work??
-			rte_timer_reset(arp_table[key].refresh_timer,
+			rte_timer_reset(arp_table.entries[key].refresh_timer,
 					0,
 					PERIODICAL,
 					rte_lcore_id(),
@@ -217,23 +218,24 @@ arp_process_reply(struct rte_mbuf *pkt)	{
 	// 3	If not full
 	// 	3.a	Add computer hash to act as index to the table
 	key = rte_hash_add_key(arp_table.hash_mapper,
-			       (uint32_t) src_ip_addr.addr_bytes);
+			       (void *) &ip_lp);
 	if (key <0)	{
 		if (key == -EINVAL)	{
 			pfm_trace_msg("Invalid parameters");
 		}
 		if (key == -ENOSPC)	{
-			pfm_log_msg("ARP table is full");
+			pfm_log_msg(PFM_LOG_WARNING,
+				    "ARP table is full");
 		}
 		return -1;
 	}
 
 	// 	3.b	Add entry to the table at the index computed
-	rte_ether_addr_copy(&src_mac_addr,&(arp_table[key].mac_addr));
-	ipv4_addr_copy(&src_ip_addr,&(arp_table[key].dst_ip_addr));
+	rte_ether_addr_copy(&src_mac_addr,&(arp_table.entries[key].mac_addr));
+	ipv4_addr_copy(&src_ip_addr,&(arp_table.entries[key].dst_ip_addr));
 	//Acha
-	arp_table.link_id = 0;
-	arp_table.try_count = 0;
+	arp_table.entries[key].link_id = 0;
+	arp_table.entries[key].try_count = 0;
 	
 	pfm_trace_msg("Added ARP ENTRY :: %d.%d.%d%d	-"
 		      "-  %d:%d:%d:%d:%d:%d  |",
@@ -251,18 +253,18 @@ arp_process_reply(struct rte_mbuf *pkt)	{
 	
 	ticks = 60*rte_get_timer_hz();
 
-	callback_args refresh_args = {
+	cb_args refresh_args = {
 					.key = key,
 					.ticks = ticks
 				};
 
-	rte_timer_init(&(arp_table[key].refresh_timer));
-	rte_timer_reset(arp_table[key].refresh_timer,
+	rte_timer_init(arp_table.entries[key].refresh_timer);
+	rte_timer_reset(arp_table.entries[key].refresh_timer,
 			ticks,
 			PERIODICAL,
 			rte_lcore_id(),
 			refresh_callback,
-			(void *)refresh_args);
+			(void *)&refresh_args);
 	pfm_trace_msg("Processed ARP reply");
 	return 0;
 }
