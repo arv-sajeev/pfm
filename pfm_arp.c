@@ -6,6 +6,7 @@
 #include <rte_common.h>
 #include <rte_ethdev.h>
 #include <rte_mbuf.h>
+#include <rte_ring.h>
 #include <rte_ether.h>
 #include <rte_mbuf.h>
 #include <rte_hash.h>
@@ -52,8 +53,93 @@ arp_init(void)	{
 			    "Error during arp init");
 		return -1;
 	}
+	int ret = rte_timer_subsystem_init();
+	if (ret != 0)	{
+		if (ret == -ENOMEM)	{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "Error while initialising timer library");
+		}
+		return -1;
+	}
+	pfm_trace_msg("timer library intialised");	
 	pfm_trace_msg("arp_table initialized");
 	return 0;
+}
+
+static int 
+arp_clear_entry(arp_entry_t *arp_entry){
+	int ret;
+	struct rte_ether_addr empt_mac = {
+					.addr_bytes = {0x00,0x00,0x00,0x00,0x00,0x00
+				}
+	ipv4_addr_t empt_ip = 		{
+					.addr_bytes = {0x00,0x00,0x00,0x00}
+				}
+
+	rte_ether_addr_copy(&empt_mac,&arp_entry->mac_addr);
+	ipv4_addr_copy(&empt_ip,&arp_entry->dst_ip_addr);
+	arp_entry->try_count = 0;
+	arp_entry->link_id = 0;
+	pfm_trace_msg("Cleared arp entries");
+	ret = rte_timer_stop(arp_entry->refresh_timer);
+	if (ret != 0)	{
+		pfm_log_msg(PFM_LOG_ERR,
+			    "Unable to clear entry");	
+		return -1;
+	}
+	pfm_trace_msg("Stopped timer");
+	return 0;
+}
+
+static int 
+arp_request_send(int key)	{
+	struct rte_mbuf *pkt = rte_mbuf_alloc_raw(sys_info_g.mbuf_pool);
+	unsigned char* packet = rte_pktmbuf_mtod(pkt,unsigned char*);
+	// Pending 
+	pkt[0] = arp_table[key].addr_bytes[0];
+	pkt[1] = arp_table[key].addr_bytes[1];
+	pkt[2] = arp_table[key].addr_bytes[2];
+	pkt[3] = arp_table[key].addr_bytes[3];
+	pkt[4] = arp_table[key].addr_bytes[4];
+	pkt[5] = arp_table[key].addr_bytes[5];
+
+	int ret_tx = rte_ring_enqueue_burst(sys_info_g.dist_tx_ring,
+                                            (void *)ret_pkts,
+                                            1,
+                                            NULL);
+	pfm_trace_msg("Sent an arp packet");
+	return 0;
+}
+
+static void 
+refresh_callback(__rte_unused struct rte_timer * timer,void * called_args)	{
+	callback_args* args = (callback_args*)called_args;
+	int ret;
+	pfm_trace_msg("ARP entry timed out refresh call attempt :: %d",
+		      arp_table[args->key].try_count++);
+	// If within retry limit retry and send an arp request
+	if (arp_table[args->key].try_count < 4)	{
+		args->ticks = args->ticks*2;
+		// Send an arp request
+		// PENDING
+		arp_request_send(args->key);
+		rte_timer_reset(arp_table[args->key].refresh_timer,
+				args->ticks,
+				PERIODICAL,
+				rte_lcore_id(),
+				refresh_callback,
+				(void *)args);
+	}
+
+	// Else delete the entry and kill the timer
+	else {
+		ret = arp_clear_entry(arp_table[args->key]);
+		if (ret != 0)	{
+		pfm_log_msg(PFM_LOG_ERR,
+			    "Error clearing arp entry");
+		}
+		pfm_trace_msg("Cleared arp entry");
+	}
 }
 
 int 
@@ -149,17 +235,34 @@ arp_process_reply(struct rte_mbuf *pkt)	{
 	arp_table.link_id = 0;
 	arp_table.try_count = 0;
 	
+	pfm_trace_msg("Added ARP ENTRY :: %d.%d.%d%d	-"
+		      "-  %d:%d:%d:%d:%d:%d  |",
+		      src_ip_addr.addr_bytes[0],
+		      src_ip_addr.addr_bytes[1],
+		      src_ip_addr.addr_bytes[2],
+		      src_ip_addr.addr_bytes[3],
+		      src_mac_addr.addr_bytes[0],
+		      src_mac_addr.addr_bytes[1],
+		      src_mac_addr.addr_bytes[2],
+		      src_mac_addr.addr_bytes[3],
+		      src_mac_addr.addr_bytes[4],
+		      src_mac_addr.addr_bytes[5]);
 	//Refresh timeout for 60 seconds
 	
 	ticks = 60*rte_get_timer_hz();
 
+	callback_args refresh_args = {
+					.key = key,
+					.ticks = ticks
+				};
+
 	rte_timer_init(&(arp_table[key].refresh_timer));
-	//Pending
 	rte_timer_reset(arp_table[key].refresh_timer,
 			ticks,
 			PERIODICAL,
 			rte_lcore_id(),
 			refresh_callback,
-			(void *)key);
-
+			(void *)refresh_args);
+	pfm_trace_msg("Processed ARP reply");
+	return 0;
 }

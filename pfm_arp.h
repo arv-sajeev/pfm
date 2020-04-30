@@ -21,10 +21,16 @@ typedef struct arp_table_entry {
 
 } arp_entry_t;
 
-tyepdef struct arp_table {
+typedef struct arp_table {
 	struct rte_hash *hash_mapper;
 	arp_entry_t entries[PFM_ARP_TABLE_ENTRIES];
 } arp_table_t;
+
+typedef struct callback_args	{
+	int key;
+	uint64_t ticks;	
+	struct rte_ring rx_tx_ring;
+}
 
 
 
