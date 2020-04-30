@@ -69,6 +69,14 @@ static inline void ipv4_addr_copy(ipv4_addr_t *ip_from,ipv4_addr_t *ip_to)	{
 	to_bytes[3] = from_bytes[3];
 }
 
+static inline int ipv4_addr_equal(const ipv4_addr_t *ip_from,const ipv4_addr_t *ip_to)	{
+	const uint32_t *ip1 =  (const uint32_t*)ip_from.addr_bytes;
+	const uint32_t *ip2 =  (const uint32_t*)ip_to.addr_bytes;
+
+	return (*ip1 == *ip2);
+
+}
+
 typedef struct{
 	uint8_t addr_bytes[MAC_ADDR_SIZE];
 } mac_addr_t;

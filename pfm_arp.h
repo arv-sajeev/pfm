@@ -3,29 +3,30 @@
 
 #include <rte_jhash.h>
 #include <pfm_comm.h>
+#include <rte_timer.h>
+#include <rte_hash.h>
+
+#define PFM_ARP_TABLE_ENTRIES 32
+#define PFM_ARP_HASH_NAME "ARP_TABLE_HASH"
+#define PFM_ARP_HASH_KEY_LEN 32
+#define HASH_SEED 26
 
 typedef struct arp_table_entry {
+
 	ipv4_addr_t dst_ip_addr;
 	rte_ether_addr mac_addr;
 	uint32_t link_id;
+	struct rte_timer* refresh_timer;
+	uint8_t try_count;
 
-} arp_t;
+} arp_entry_t;
 
-#define MAX_ARP_TABLE_ENTRIES 32
-#define HASH_NAME "ARP_TABLE_HASH"
-#define HASH_KEY_LEN 32
-#define HASH_SEED 26
-
-struct rte_hash_parameters hash_params = 
-{
-	.name 			= HASH_NAME,
-	.entries 		= MAX_ROUTE_TABLE_ENTRIES,
-	.reserved 		= 0,
- 	.key_len    		= HASH_KEY_LEN,
-	.hash_func		= rte_jhash,
-	.hash_func_init_val 	= 26,
-	.socket_id		= (int)rte_socket_id()
-}
+tyepdef struct arp_table {
+	struct rte_hash *hash_mapper;
+	arp_entry_t entries[PFM_ARP_TABLE_ENTRIES];
+} arp_table_t;
 
 
 
+
+#endif
