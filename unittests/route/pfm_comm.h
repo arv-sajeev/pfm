@@ -1,6 +1,6 @@
 #ifndef __PFM_COMM_H__
 #define __PFM_COMM_H__ 1
-
+#include "pfm.h"
 #define MAX_LINK_COUNT  5
 #define LAST_LINK_ID  MAX_LINK_COUNT
 #define MAX_KNI_PORTS	5
@@ -11,7 +11,6 @@
 #define MBUF_PRIV_SIZE	0
 
 /* DPDK object names */
-#include "pfm.h"
 #define	MBUF_NAME	"MBUF"
 #define	TX_RING_NAME	"TXRING"
 #define	RX_RING_NAME	"RXRING"

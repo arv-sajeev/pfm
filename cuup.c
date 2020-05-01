@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 	if (PFM_SUCCESS != ret_val)
 	{
         	pfm_log_msg(PFM_LOG_WARNING,
-			"DPPF_StartPktProcessing() failed");
+			"pfm_start_packet_processing() failed");
 		terminate_program();
 		exit(2);
 	}

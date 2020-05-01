@@ -22,9 +22,8 @@
 #define TX_BURST_SIZE   32
 #define RX_BURST_SIZE   TX_BURST_SIZE
 
-#define MAC_ADDR_SIZE		6
-#define IP_ADDR_SIZE		4
-#define STR_IP_ADDR_SIZE	20
+#define MAC_ADDR_SIZE	6
+#define IP_ADDR_SIZE	4
 #define DEFAULT_MTU_SIZE        1500
 #define DEFAULT_MIN_MTU_SIZE    68
 #define DEFAULT_MAX_MTU_SIZE    65535
@@ -56,10 +55,33 @@ typedef enum
 
 
 
-typedef uint32_t ipv4_addr_t ;
+typedef struct {
+	uint8_t addr_bytes[IP_ADDR_SIZE];
+	//uint32_t addr_number;
+} ipv4_addr_t;
 
+static inline void ipv4_addr_copy(ipv4_addr_t *ip_from,ipv4_addr_t *ip_to)	{
+	
+	uint8_t *from_bytes = (uint8_t *)(ip_from->addr_bytes);
+	uint8_t *to_bytes   = (uint8_t *)(ip_to->addr_bytes);
 
+	to_bytes[0] = from_bytes[0];
+	to_bytes[1] = from_bytes[1];
+	to_bytes[2] = from_bytes[2];
+	to_bytes[3] = from_bytes[3];
+}
 
+static inline int ipv4_addr_equal(const ipv4_addr_t *ip_from,const ipv4_addr_t *ip_to)	{
+	const uint32_t *ip1 =  (const uint32_t*)ip_from->addr_bytes;
+	const uint32_t *ip2 =  (const uint32_t*)ip_to->addr_bytes;
+
+	return (*ip1 == *ip2);
+
+}
+
+typedef struct{
+	uint8_t addr_bytes[MAC_ADDR_SIZE];
+} mac_addr_t;
 
 typedef struct {
 	int kniIdx;

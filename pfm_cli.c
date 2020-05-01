@@ -121,7 +121,7 @@ static pfm_cli_retval_t action_callback_route_list(FILE* fpout, char *args)
 {
 	printf("SAJEEVInvoking action_callback_route_list(fp=%p,args=%p)\n",
 			fpout,args);
-	route_print(fpout);
+	pfm_route_print(fpout);
 
 	return PFM_CLI_CONTINUE;
 }

@@ -18,7 +18,7 @@
 #include "pfm_comm.h"
 #include "pfm_link.h"
 #include "pfm_kni.h"
-
+#include "pfm_utils.h"
 
 typedef struct 
 {
