@@ -78,7 +78,7 @@ int pfm_route_add(ipv4_addr_t net_mask,uint8_t net_mask_depth,ipv4_addr_t gatewa
  *
  *********************/
 
-route_t *pfm_route_query(ipv4_addr_t ip_addr);
+route_t* pfm_route_query(ipv4_addr_t ip_addr);
 
 /**********************
  *

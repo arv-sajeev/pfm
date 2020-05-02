@@ -112,11 +112,11 @@ pfm_route_query(ipv4_addr_t ip_addr)	{
 	ret = rte_lpm_lookup(lpm_mapper,
 			     ip_addr,
 			     &key);
-	if (ret == 0 && (key < entry_count))	{
+	if (ret == 0 && key <= (entry_count) )	{
 		return &(route_table[key]);
 	}
 
-	if (ret == -ENOENT )	{
+	else if (ret == -ENOENT )	{
 		pfm_trace_msg("Entry not found");
 		return NULL;
 	}

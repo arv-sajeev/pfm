@@ -6,7 +6,7 @@
 #include <rte_lpm.h>
 
 #define PFM_ROUTE_LPM_MAX_ENTRIES 	32
-#define PFM_ROUTE_LPM_MAX_TBL8S		(1 << 3)
+#define PFM_ROUTE_LPM_MAX_TBL8S		8
 #define PFM_ROUTE_LPM_FLAGS		0
 #define PFM_ROUTE_LPM_NAME		"PFM_ROUTE_LPM"
 

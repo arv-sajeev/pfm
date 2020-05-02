@@ -2,7 +2,7 @@
 # Copyright(c) 2010-2014 Intel Corporation
 
 # binary name
-APP = arp_unit_test.exe
+APP = route_unit_test.exe
 
 # all source are stored in SRCS-y
 SRCS-y :=	main.c \
