@@ -26,7 +26,6 @@ typedef struct callback_args	{
 
 
 
-int arp_init(void);
 
 int pfm_arp_process_reply(struct rte_mbuf *pkt,uint16_t link_id);
 

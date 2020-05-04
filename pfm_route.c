@@ -22,7 +22,7 @@ static pfm_bool_t lpm_up = PFM_FALSE;
 static route_t route_table[PFM_ROUTE_LPM_MAX_ENTRIES]; 
 static struct rte_lpm *lpm_mapper;
 
-int 
+static int 
 lpm_init(void)	{
 	if (lpm_up != PFM_FALSE)	{
 		pfm_log_msg(PFM_LOG_ERR,
@@ -58,7 +58,12 @@ pfm_route_add(pfm_ip_addr_t net_mask,uint8_t net_mask_depth,pfm_ip_addr_t gatewa
 	if (lpm_up == PFM_FALSE)	
 	{
 		pfm_trace_msg("First call to route_add");
-		lpm_init();
+		ret = lpm_init();
+		if (ret != 0)	{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "Error during lpm initialisation");
+			return -1;
+		}	
 		pfm_trace_msg("Intialised lpm module");
 
 	}
@@ -109,6 +114,18 @@ route_t*
 pfm_route_query(pfm_ip_addr_t ip_addr)	{
 	int ret;
 	uint32_t key;
+	if (lpm_up == PFM_FALSE)	
+	{
+		pfm_trace_msg("First call to route_add");
+		ret = lpm_init();
+		if (ret != 0)	{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "Error during lpm initialisation");
+			return NULL;
+		}	
+		pfm_trace_msg("Intialised lpm module");
+	}
+
 	ret = rte_lpm_lookup(lpm_mapper,
 			     ip_addr,
 			     &key);
@@ -132,6 +149,19 @@ void
 pfm_route_print(FILE *fp)	{
 	char net_mask[STR_IP_ADDR_SIZE];
 	char gateway_addr[STR_IP_ADDR_SIZE];
+	int ret;
+	if (lpm_up == PFM_FALSE)	
+	{
+		pfm_trace_msg("First call to route_add");
+		ret = lpm_init();
+		if (ret != 0)	{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "Error during lpm initialisation");
+			return ;
+		}	
+		pfm_trace_msg("Intialised lpm module");
+	}
+
 	if (fp == NULL)	{
 		pfm_log_msg(PFM_LOG_ERR,
 			    "Invalid file stream provided");

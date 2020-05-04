@@ -27,19 +27,6 @@ typedef struct route_table	{
 
 
 
-/*****************
- *
- * 	Function to craete lpm handler using the pfm_lpm_config structure provided
- *	@params
- *	 void
- *
- * 	@returns
- * 	 - 0 if success, -1 on error
- *
- *
- * **************/
- 
- int lpm_init(void);
 
 
 /*****************

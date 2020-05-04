@@ -39,7 +39,7 @@ static struct rte_hash* hash_mapper;
 
 
 
-int 
+static int 
 arp_init(void)	{
 	if (arp_up != PFM_FALSE)	{
 		pfm_log_msg(PFM_LOG_ERR,
@@ -154,16 +154,20 @@ pfm_arp_process_reply(struct rte_mbuf *pkt,uint16_t link_id)	{
 	int ret,key;
 	uint64_t ticks;
 	unsigned char* packet = rte_pktmbuf_mtod(pkt,unsigned char*);
-
+	
+	if (arp_up == PFM_FALSE)	{
+		pfm_trace_msg("ARP not yet initialised");
+		ret = arp_init();
+		if (ret != 0)	{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "Error during arp initialisation");
+			return -1;
+		}
+	}
 	packet += pkt->l2_len;
 	
 	// Get the MAC address
-	dst_mac_addr.addr_bytes[0] = packet[8];
-	dst_mac_addr.addr_bytes[1] = packet[9];
-	dst_mac_addr.addr_bytes[2] = packet[11];
-	dst_mac_addr.addr_bytes[3] = packet[12];
-	dst_mac_addr.addr_bytes[4] = packet[13];
-	dst_mac_addr.addr_bytes[5] = packet[14];
+	memcpy(dst_mac_addr.addr_bytes,&packet[8],6);
 
 	// Get the IP address Pending check if right
 	dst_ip_addr  = *(uint32_t *)&packet[15];
@@ -254,6 +258,15 @@ arp_entry_t*
 pfm_arp_query(pfm_ip_addr_t ip_addr)	{
 
 	int ret;
+	if (arp_up == PFM_FALSE)	{
+		pfm_trace_msg("ARP not yet initialised");
+		ret = arp_init();
+		if (ret != 0)	{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "Error during arp initialisation");
+			return NULL;
+		}
+	}
 	int key = rte_hash_lookup_data(hash_mapper,
 				   (void *)&ip_addr,
 				   NULL);
@@ -288,7 +301,20 @@ pfm_arp_print (FILE * fp)
 	const void *key_ptr;
 	void * data_ptr;
 	uint32_t ptr;
-	int pos;
+	int pos,ret;
+	if (arp_up == PFM_FALSE)	{
+		pfm_trace_msg("ARP not yet initialised");
+		ret = arp_init();
+		if (ret != 0)	{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "Error during arp initialisation");
+			return;
+		}
+	}
+
+	if (rte_hash_count(hash_mapper) == 0)	{
+		fprintf(fp,"File table not yet initialised");
+	}
 	arp_entry_t entry;
 	fprintf(fp,"| %-20s | %-25s | %-5s | %-10s | %-20s |\n",
 		"Dst Address","HW Address","Link ID","Refresh #","Src address");
