@@ -16,20 +16,20 @@
 
 #include "pfm.h"
 #include "pfm_comm.h"
+#include "pfm_utils.h"
 #include "pfm_link.h"
 #include "pfm_kni.h"
-#include "pfm_utils.h"
+
 
 typedef struct 
 {
 	struct		rte_kni *ptr;
 	char		name[RTE_KNI_NAMESIZE+1];
-	unsigned char	ip_addr[IP_ADDR_SIZE];
+	pfm_ip_addr_t	ip_addr;
 	unsigned char	mac_addr[MAC_ADDR_SIZE];
 	int		subnet_mask_len;
 	int		link_id;
 	ops_state_t	ops_state;
-	admin_state_t	admin_state;
 } kni_info_t;
 
 static int kni_count_g = 0;
@@ -38,9 +38,11 @@ static const unsigned char default_mac_addr_g[MAC_ADDR_SIZE] =
 	{ 0x06, 0x10, 0x20, 0x30, 0x40, 0x50 };
 
 /* Callback function which is invoked when MTU is changed*/
-static int kni_change_mtu(uint16_t kni_id, unsigned int new_mtu)
+static int callback_func_kni_mtu_change(uint16_t kni_id,
+		unsigned int new_mtu)
 {
-	pfm_trace_msg("kni_change_mtu(kni_id=%d, new_mtu=%d) invoked. "
+	pfm_trace_msg("callback_func_kni_mtu_change(kni_id=%d, "
+				"new_mtu=%d) invoked. "
 				"But MTU change is not yet implemented",
 				kni_id,new_mtu);
 	
@@ -50,17 +52,17 @@ static int kni_change_mtu(uint16_t kni_id, unsigned int new_mtu)
 
 static pfm_retval_t  ip_addr_config(	const char *if_name,
 			ops_state_t kni_ops_state,
-			const unsigned char *ip_addr,
+			pfm_ip_addr_t ip_addr,
 			const int mask_len)
 {
-	static char str_ip_addr[30];
+	static char str_ip_addr[STR_IP_ADDR_SIZE+1+3];
+	static char ip_str[STR_IP_ADDR_SIZE+1];
 	char *operation;
 	pid_t pid; 
 	int status; 
 
-	/* Convert IP address to string */	
-	sprintf(str_ip_addr,"%d.%d.%d.%d/%d",
-		ip_addr[0],ip_addr[1],ip_addr[2],ip_addr[3],mask_len);
+	/* Convert IP address to string */
+	sprintf(str_ip_addr,"%s/%d",pfm_ip2str(ip_addr,ip_str),mask_len);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdiscarded-qualifiers"
@@ -81,7 +83,10 @@ static pfm_retval_t  ip_addr_config(	const char *if_name,
 		/* fork() failed */
 		pfm_log_std_err(PFM_LOG_ERR,
 				"Not able to assign IP %s to KNI %s. "
-				"fork() failed",str_ip_addr,if_name);
+				"fork() failed",
+				str_ip_addr,
+				mask_len,
+				if_name);
 		return PFM_FAILED;
 	}
 	pfm_trace_msg("Child prcess fork() sucessful"); 
@@ -143,7 +148,7 @@ static pfm_retval_t  ip_addr_config(	const char *if_name,
 }
 
 /* Callback function which is invoked when configuring each KNI interface */
-static int kni_config_network_if(uint16_t kni_id, uint8_t kni_state)
+static int callback_func_kni_if_config(uint16_t kni_id, uint8_t kni_state)
 {
 	int link_id;
 	ops_state_t new_ops_state;
@@ -152,7 +157,7 @@ static int kni_config_network_if(uint16_t kni_id, uint8_t kni_state)
 	if (kni_id >= kni_count_g)
 	{
 		pfm_log_msg(PFM_LOG_ERR,
-			"Invalid KniId=%d passed to kni_config_network_if()",
+			"Invalid KniId=%d passed to callback_func_kni_if_config()",
 			kni_id);
 		return 0;
 	}
@@ -314,7 +319,7 @@ void kni_state_change(const int link_id,const ops_state_t desired_state)
 }
 struct rte_kni *kni_open(const int link_id,
 			const char *kni_name,
-			const unsigned char *ip_addr,
+			pfm_ip_addr_t ip_addr,
 			const int subnet_mask_len)
 {
 	struct rte_kni *kni_ptr;
@@ -419,8 +424,8 @@ struct rte_kni *kni_open(const int link_id,
 
 	memset(&ops, 0, sizeof(ops));
 	ops.port_id = kni_count_g;
-	ops.change_mtu = kni_change_mtu;
-	ops.config_network_if = kni_config_network_if;
+	ops.change_mtu = callback_func_kni_mtu_change;
+	ops.config_network_if = callback_func_kni_if_config;
 	ops.config_mac_address = NULL;
     	ops.config_promiscusity = NULL;
    	ops.config_allmulticast = NULL;
@@ -445,7 +450,7 @@ struct rte_kni *kni_open(const int link_id,
 
 	kni_info_list_g[kni_count_g].ptr = kni_ptr;
 	strncpy(kni_info_list_g[kni_count_g].name,kni_name,RTE_KNI_NAMESIZE);
-	memcpy(kni_info_list_g[kni_count_g].ip_addr,ip_addr,IP_ADDR_SIZE);
+	kni_info_list_g[kni_count_g].ip_addr= ip_addr;
 	kni_info_list_g[kni_count_g].subnet_mask_len = subnet_mask_len;
 	kni_info_list_g[kni_count_g].link_id = link_id;
 	memcpy(kni_info_list_g[kni_count_g].mac_addr,
@@ -595,7 +600,6 @@ int kni_read(	struct rte_mbuf *pkt_burst[],
                 /* if a bust is received, retrun the funtion*/
                 if (0 < rx_sz)
                 {
-			//printf("KNI Tx. %d Pkts on Link=%d\n",rx_sz,*link_id);
                         return rx_sz;
                 }
 
@@ -608,8 +612,8 @@ int kni_read(	struct rte_mbuf *pkt_burst[],
 
 void kni_ipv4_list_print(FILE *fp)
 {
-	char ip_addr[20];
 	int idx;
+	char ip_str[STR_IP_ADDR_SIZE+1];
 
 	fprintf(fp,"   %-10s %-18s %-18s %s\n",
 		"NAME",
@@ -618,17 +622,11 @@ void kni_ipv4_list_print(FILE *fp)
 		"LINK");
 	for(idx=0; idx < kni_count_g; idx++)
 	{
-		sprintf(ip_addr,"%d.%d.%d.%d/%d",
-			kni_info_list_g[idx].ip_addr[0],
-			kni_info_list_g[idx].ip_addr[1],
-			kni_info_list_g[idx].ip_addr[2],
-			kni_info_list_g[idx].ip_addr[3],
-			kni_info_list_g[idx].subnet_mask_len);
-
-		fprintf(fp,"   %-10s %-18s "
+		fprintf(fp,"   %-10s %-15s/%-2d "
 			"%02X:%02X:%02X:%02X:%02X:%02X  %d\n",
 			kni_info_list_g[idx].name,
-			ip_addr,
+			pfm_ip2str(kni_info_list_g[idx].ip_addr,ip_str),
+			kni_info_list_g[idx].subnet_mask_len,
 			kni_info_list_g[idx].mac_addr[0],
 			kni_info_list_g[idx].mac_addr[1],
 			kni_info_list_g[idx].mac_addr[2],
@@ -641,7 +639,7 @@ void kni_ipv4_list_print(FILE *fp)
 
 void kni_ipv4_show_print(FILE *fp, char *kni_name)
 {
-	char ip_addr[20];
+	char ip_str[STR_IP_ADDR_SIZE+1];
 	int idx;
 	int len;
 
@@ -661,15 +659,11 @@ void kni_ipv4_show_print(FILE *fp, char *kni_name)
 		fprintf(fp,"IfName '%s' does not exists\n",kni_name);
 		return;
 	}
-	sprintf(ip_addr,"%d.%d.%d.%d/%d",
-			kni_info_list_g[idx].ip_addr[0],
-			kni_info_list_g[idx].ip_addr[1],
-			kni_info_list_g[idx].ip_addr[2],
-			kni_info_list_g[idx].ip_addr[3],
-			kni_info_list_g[idx].subnet_mask_len);
 
 	fprintf(fp,"   %-10s- %s\n","Name",kni_info_list_g[idx].name);
-	fprintf(fp,"   %-10s- %s\n","IP Addr",ip_addr);
+	fprintf(fp,"   %-10s- %s/%d\n","IP Addr",
+			pfm_ip2str(kni_info_list_g[idx].ip_addr,ip_str),
+			kni_info_list_g[idx].subnet_mask_len);
 	fprintf(fp,"   %-10s- %02X:%02X:%02X:%02X:%02X:%02X\n",
 			"MAC Addr",
 			kni_info_list_g[idx].mac_addr[0],
@@ -682,11 +676,156 @@ void kni_ipv4_show_print(FILE *fp, char *kni_name)
 	fprintf(fp,"   %-10s- %s\n","Ops State",
 		((kni_info_list_g[idx].ops_state==OPSSTATE_ENABLED) ?
 				"ENABLED" : "DISABLED"));
-	fprintf(fp,"   %-10s- %s\n","Admn State",
-			((kni_info_list_g[idx].admin_state
-				== ADMSTATE_LOCKED) ?
-				"LOCKED" : "UNLOCKED"));
 	fprintf(fp,"   %-10s- %p\n","KNI Ptr",kni_info_list_g[idx].ptr);
+	return;
+}
+
+const unsigned char *kni_ipv4_mac_addr_get(pfm_ip_addr_t ip)
+{
+	int idx;
+
+	for(idx=0; idx < kni_count_g; idx++)
+	{
+		if (kni_info_list_g[idx].ip_addr == ip)
+		{
+			return kni_info_list_g[idx].mac_addr;
+		}
+	}
+	return NULL;
+}
+
+void pfm_kni_tx_arp(const int link_id,
+		const pfm_ip_addr_t sender_ip_addr,
+		const pfm_ip_addr_t target_ip_addr,
+		const unsigned char *target_mac_addr)
+{
+	char ip_str[STR_IP_ADDR_SIZE+1];
+	unsigned char *sender_mac_addr;
+	struct rte_ether_hdr *eth_hdr;
+	struct rte_arp_hdr *arp_hdr;
+	struct rte_mbuf *mbuf;
+	int ret;
+	unsigned char *pkt;
+	int pkt_size;
+	int idx;
+
+	for(idx=0; idx < kni_count_g; idx++)
+	{
+		if (kni_info_list_g[idx].ip_addr == sender_ip_addr)
+			break;
+	}
+
+	if (idx >= kni_count_g)
+	{
+		pfm_log_rte_err(PFM_LOG_ERR, 
+			"pfm_kni_tx_arp() invoked with invalid "
+			"sender_ip_addr=%s",
+			pfm_ip2str(sender_ip_addr,ip_str));
+		return;
+	}
+	sender_mac_addr = kni_info_list_g[idx].mac_addr;
+
+	mbuf = rte_pktmbuf_alloc(sys_info_g.mbuf_pool);
+	if (NULL == mbuf)
+	{
+#ifdef TRACE
+		char sip_str[STR_IP_ADDR_SIZE+1];
+		char tip_str[STR_IP_ADDR_SIZE+1];
+
+		pfm_log_rte_err(PFM_LOG_ERR, 
+			"rte_pktmbuf_alloc() failed while sending ARP "
+			"senderId=%s, targetIp=%s, pkt droped",
+			pfm_ip2str(sender_ip_addr,sip_str),
+			pfm_ip2str(target_ip_addr,tip_str));
+#endif
+		return;
+	}
+
+	pkt_size = sizeof(struct rte_ether_hdr) +
+			sizeof(struct rte_arp_hdr);
+	mbuf->data_len = pkt_size;
+	mbuf->pkt_len = pkt_size;
+	mbuf->port = link_id;
+
+	pkt = rte_pktmbuf_mtod(mbuf, unsigned char *);
+
+	/* encode Ethernet header */
+	eth_hdr = (struct rte_ether_hdr *)pkt;
+	memcpy(&eth_hdr->s_addr,sender_mac_addr,MAC_ADDR_SIZE);
+	memcpy(&eth_hdr->d_addr,target_mac_addr,MAC_ADDR_SIZE);
+	eth_hdr->ether_type = htons(RTE_ETHER_TYPE_ARP);
+
+	/* ecode ARP Header */
+	arp_hdr = (struct rte_arp_hdr *)
+			(pkt + sizeof(struct rte_ether_hdr));
+	// Hardware Type
+	arp_hdr->arp_hardware = htons(RTE_ARP_HRD_ETHER);
+	
+	// Protocol Type
+	arp_hdr->arp_protocol = htons(RTE_ETHER_TYPE_IPV4);
+
+	// Hw Address Len
+	arp_hdr->arp_hlen = RTE_ETHER_ADDR_LEN;
+
+	// Protocol Addess Len
+	arp_hdr->arp_plen = sizeof(uint32_t);
+
+	// OpCode
+	arp_hdr->arp_opcode = htons(RTE_ARP_OP_REQUEST);
+
+	// Sender HE Address
+	memcpy(&arp_hdr->arp_data.arp_sha,sender_mac_addr,MAC_ADDR_SIZE);
+
+	// Sendr IP Address
+	arp_hdr->arp_data.arp_sip = htonl(sender_ip_addr);
+
+	// Target HW Address
+	memset(&arp_hdr->arp_data.arp_tha, 0, MAC_ADDR_SIZE);
+
+	// Target IP Address
+	arp_hdr->arp_data.arp_tip = htonl(target_ip_addr);
+
+	/* TxLoop Ring */
+	ret = rte_ring_enqueue(sys_info_g.tx_ring_ptr,mbuf);
+	if (0 != ret)
+	{
+#ifdef TRACE
+		char sip_str[STR_IP_ADDR_SIZE+1];
+		char tip_str[STR_IP_ADDR_SIZE+1];
+
+		pfm_log_rte_err(PFM_LOG_ERR, 
+			"rte_ring_enqueue_burst() failed while sending ARP "
+			"senderId=%s, targetIp=%s, pkt droped",
+			pfm_ip2str(sender_ip_addr,sip_str),
+			pfm_ip2str(target_ip_addr,tip_str));
+#endif
+		rte_pktmbuf_free(mbuf);
+	}
+#ifdef TRACE
+	char sip_str[STR_IP_ADDR_SIZE+1];
+	char tip_str[STR_IP_ADDR_SIZE+1];
+
+	pfm_trace_msg("Enqueued ARP packets to txLoop"
+		"senderId=%s, targetIp=%s ",
+		pfm_ip2str(sender_ip_addr,sip_str),
+		pfm_ip2str(target_ip_addr,tip_str));
+#endif
+	return;
+}
+
+void pfm_kni_broadcast_arp(	const pfm_ip_addr_t target_ip_addr,
+				const unsigned char *target_mac_addr)
+{
+	int idx;
+
+	for (idx=0; idx < kni_count_g; idx++)
+	{
+		pfm_kni_tx_arp(
+			kni_info_list_g[idx].link_id,
+			kni_info_list_g[idx].ip_addr,
+			target_ip_addr,
+			target_mac_addr);
+	}
 	return;
 }
 

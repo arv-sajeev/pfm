@@ -8,10 +8,10 @@
 #include "pfm_log.h"
 #include "pfm_utils.h"
 
-ipv4_addr_t pfm_str2ip(const char *ip_str)
+pfm_ip_addr_t pfm_str2ip(const char *ip_str)
 {
-	ipv4_addr_t ipn;	// IP in network order
-	ipv4_addr_t iph;	// IP in host order
+	pfm_ip_addr_t ipn;	// IP in network order
+	pfm_ip_addr_t iph;	// IP in host order
 	int ret;
 
 	ret = inet_pton(AF_INET,ip_str,&ipn);
@@ -26,9 +26,9 @@ ipv4_addr_t pfm_str2ip(const char *ip_str)
 	return iph;
 }
 
-const char *pfm_ip2str(ipv4_addr_t iph,char *ip_str)
+const char *pfm_ip2str(pfm_ip_addr_t iph,char *ip_str)
 {
-	ipv4_addr_t ipn;	// IP in network order
+	pfm_ip_addr_t ipn;	// IP in network order
 
 	ipn = htonl(iph);
 	const char *ret = inet_ntop(AF_INET,&ipn,ip_str,STR_IP_ADDR_SIZE);
@@ -40,4 +40,5 @@ const char *pfm_ip2str(ipv4_addr_t iph,char *ip_str)
 	}
 	return ip_str;
 }
+
 

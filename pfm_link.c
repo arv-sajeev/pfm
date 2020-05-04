@@ -192,12 +192,31 @@ static pfm_retval_t link_start(int link_id)
 	memcpy(info_ptr->mac_addr,addr.addr_bytes,MAC_ADDR_SIZE);
 
         memset(&port_conf,0,sizeof(struct rte_eth_conf));
-        port_conf.rxmode.max_rx_pkt_len = RTE_ETHER_MAX_LEN;
-        if (dev_info.tx_offload_capa & DEV_TX_OFFLOAD_MBUF_FAST_FREE)
-        {
-                port_conf.txmode.offloads |= DEV_TX_OFFLOAD_MBUF_FAST_FREE;
-        }
-        port_conf.rx_adv_conf.rss_conf.rss_hf &= dev_info.flow_type_rss_offloads;
+	port_conf.rxmode.mq_mode = ETH_MQ_RX_RSS;
+	port_conf.rxmode.max_rx_pkt_len = RTE_ETHER_MAX_LEN;
+	port_conf.rxmode.mq_mode = ETH_MQ_TX_NONE;
+	port_conf.rx_adv_conf.rss_conf.rss_hf =
+		(ETH_RSS_L3_DST_ONLY | ETH_RSS_GTPU);
+	if (dev_info.tx_offload_capa & DEV_TX_OFFLOAD_MBUF_FAST_FREE)
+	{
+		port_conf.txmode.offloads |= DEV_TX_OFFLOAD_MBUF_FAST_FREE;
+		port_conf.txmode.offloads |= DEV_TX_OFFLOAD_IPV4_CKSUM;
+	}
+
+	unsigned int rss_hf = port_conf.rx_adv_conf.rss_conf.rss_hf;
+        port_conf.rx_adv_conf.rss_conf.rss_hf &=
+			dev_info.flow_type_rss_offloads;
+
+	if (port_conf.rx_adv_conf.rss_conf.rss_hf != rss_hf)
+	{
+		pfm_log_rte_err(PFM_LOG_WARNING,
+			"LinkId=%d modified RSS hash function based on "
+			"hardware support, "
+			"requested:%#"PRIx64" configured:%#"PRIx64"",
+			link_id,
+			rss_hf,
+			port_conf.rx_adv_conf.rss_conf.rss_hf);
+	}
 
         ret = rte_eth_dev_configure(link_id, 1, 1, &port_conf);
         if (ret != 0)
@@ -523,7 +542,7 @@ void pfm_link_close(const char *link_name)
  *			  packtes will be returend 
  *	burst_size	- input. size of rxPkt[] arrary. i.e, how many
  *			  packes can be receved at a time
- *	port		- output. how many packets are reced in teh burst
+ *	link_id		- output. On which link, the packets are receved
  *
  * Return:
  *	>0		- Number of packets actually retrieved, which is the
@@ -534,7 +553,8 @@ void pfm_link_close(const char *link_name)
  *
  ****/	
 
-int link_read(struct rte_mbuf *rx_pkts[],uint16_t burst_size,uint16_t *port)
+int link_read(struct rte_mbuf *rx_pkts[],
+		uint16_t burst_size,uint16_t *link_id)
 {
 	static uint16_t next_read = 0;
 	int start;
@@ -555,7 +575,7 @@ int link_read(struct rte_mbuf *rx_pkts[],uint16_t burst_size,uint16_t *port)
                                         0, rx_pkts, burst_size);
 
 			/* store the link_id in output argument */
-			*port = link_info_list_g[next_read].link_id;
+			*link_id = link_info_list_g[next_read].link_id;
 		}
 
 		/* Next iteration shold check next link in round robin.*/
@@ -713,3 +733,4 @@ void pfm_link_show_print(FILE *fp, int link_id)
 			link_id);
 	}
 }
+

@@ -1,20 +1,24 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
 #include <rte_common.h>
 #include <rte_ether.h>
 #include <rte_ip.h>
 #include <rte_udp.h>
 #include "pfm.h"
 #include "pfm_comm.h"
+#include "pfm_utils.h"
 #include "pfm_ring.h"
 #include "pfm_kni.h"
 #include "pfm_classifier.h"
 
 typedef struct
 {
-	unsigned char local_ip_addr[IP_ADDR_SIZE];
-	struct rte_kni *kni_ptr;
-	int	gtp_port_no;
+	struct rte_kni*	kni_ptr;
+	pfm_ip_addr_t	local_ip_addr;
+	int		protocol;
+	int		port_no;
 } kni_mapping_t;
 
 typedef struct
@@ -24,7 +28,7 @@ typedef struct
 } ingress_classifier_t;
 
 
-ingress_classifier_t ingress_classifier[LAST_LINK_ID+1];
+static ingress_classifier_t ingress_classifier_g[LAST_LINK_ID+1];
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -33,22 +37,21 @@ static void print_classifier(void)
 	int link_id;
 	int kni_idx;
 	ingress_classifier_t *p;
+	char ip_str[STR_IP_ADDR_SIZE];
 
 	printf("CLASSIFIER:\n");
 	for(link_id=0; link_id < LAST_LINK_ID; link_id++)
 	{
-		p = &ingress_classifier[link_id];
+		p = &ingress_classifier_g[link_id];
 		for (kni_idx=0; kni_idx < p->kni_count;kni_idx++)
 		{
-			printf("\tLinkId=%d,kni_ptr=%p,gtpPort=%d,"
-					"IpAddr=%d.%d.%d.%d\n",
+			printf("\tLinkId=%d,kni_ptr=%p,"
+				"IpAddr=%s,Proto=%d,port=%d\n",
 				link_id,	
 				p->kni_map[kni_idx].kni_ptr,
-				p->kni_map[kni_idx].gtp_port_no,
-				p->kni_map[kni_idx].local_ip_addr[0],
-				p->kni_map[kni_idx].local_ip_addr[1],
-				p->kni_map[kni_idx].local_ip_addr[2],
-				p->kni_map[kni_idx].local_ip_addr[3]);
+				pfm_ip2str(p->kni_map[kni_idx].local_ip_addr,ip_str),
+				p->kni_map[kni_idx].protocol,
+				p->kni_map[kni_idx].port_no);
 		}
 	}
 }
@@ -57,28 +60,30 @@ static void print_classifier(void)
 
 pfm_retval_t pfm_ingress_classifier_add(const int link_id,
 				const char *kni_name,
-				const unsigned char *local_ip_addr,
+				pfm_ip_addr_t local_ip_addr,
 				const int subnet_mask_len,
-				const int gtp_port_no)
+				const int port_no)
 {
 	static pfm_bool_t first_call = PFM_TRUE;
 	struct rte_kni *kni_ptr;
+	char ip_str[STR_IP_ADDR_SIZE];
 	int idx;
-	ingress_classifier_t *ic_ptr = &ingress_classifier[link_id];
+
+	ingress_classifier_t *ic_ptr = &ingress_classifier_g[link_id];
 
 	if (PFM_TRUE == first_call)
 	{
 		/* calling the function 1st time. Init the array */
 		pfm_trace_msg("Invoking pfm_ingress_classifier_add() "
 				"first time. "
-				"Init ingress_classifier[] arrary");
+				"Init ingress_classifier_g[] arrary");
 		for (idx=0; idx <= LAST_LINK_ID; idx++)
 		{
-			ingress_classifier[idx].kni_count = 0;
+			ingress_classifier_g[idx].kni_count = 0;
 		}
 
 		/* set to false so that subsequent calls will not 
-		   init ingress_classifier[] again */
+		   init ingress_classifier_g[] again */
 		first_call = PFM_FALSE;
 	}
 	
@@ -94,23 +99,22 @@ pfm_retval_t pfm_ingress_classifier_add(const int link_id,
 	}
 
 	idx = ic_ptr->kni_count;
-	memcpy(ic_ptr->kni_map[idx].local_ip_addr, local_ip_addr, IP_ADDR_SIZE);
+	ic_ptr->kni_map[idx].local_ip_addr =  local_ip_addr;
 	ic_ptr->kni_map[idx].kni_ptr = kni_ptr;
-	ic_ptr->kni_map[idx].gtp_port_no = gtp_port_no;
+	ic_ptr->kni_map[idx].port_no = port_no;
 	ic_ptr->kni_count++;
 
 	pfm_trace_msg("Ingress Classifier added for KNI %s "
-			"with IP=%d.%d.%d.%d, netMaskLen=%d, kni_count=%d"
+			"with IP=%s, netMaskLen=%d, kni_count=%d"
 			"GTPPortNo=%d, kni_ptr=%p",
 			kni_name,
-			ic_ptr->kni_map[idx].local_ip_addr[0],
-			ic_ptr->kni_map[idx].local_ip_addr[1],
-			ic_ptr->kni_map[idx].local_ip_addr[2],
-			ic_ptr->kni_map[idx].local_ip_addr[3],
+			pfm_ip2str(
+				ic_ptr->kni_map[idx].local_ip_addr,ip_str),
 			subnet_mask_len,
 			ic_ptr->kni_count,
-			ic_ptr->kni_map[idx].gtp_port_no,
+			ic_ptr->kni_map[idx].port_no,
 			ic_ptr->kni_map[idx].kni_ptr);
+
 	return PFM_SUCCESS;
 }
 
@@ -145,12 +149,14 @@ static struct rte_kni *packet_classify(ingress_classifier_t *ic_ptr,
 				int *pkt_type)
 {
 	int idx;
+	char dst_ip_addr_str[STR_IP_ADDR_SIZE];
 	unsigned char *pkt, *tmp;
 	struct rte_ipv4_hdr	*ip_hdr_ptr;
 	struct rte_udp_hdr	*udp_hdr_ptr;
 	struct rte_ether_hdr	*eth_hdr_ptr;
-	unsigned char bcast_ip_addr[IP_ADDR_SIZE] = {255,255,255,255};
+	pfm_ip_addr_t bcast_ip_addr;
 	struct rte_kni *kni_ptr;
+	pfm_ip_addr_t dst_ip_addr;
 
 
 	pkt = (unsigned char *)rte_pktmbuf_mtod(mbuf,char *);
@@ -161,6 +167,9 @@ static struct rte_kni *packet_classify(ingress_classifier_t *ic_ptr,
 				(pkt + sizeof(struct rte_ether_hdr) +
 					sizeof(struct rte_ipv4_hdr));
 
+	dst_ip_addr = ntohl(ip_hdr_ptr->dst_addr);
+
+	bcast_ip_addr = pfm_str2ip("255.255.255.255");
 	tmp = (unsigned char *) &eth_hdr_ptr->ether_type;
 
 	if ((0x08 == tmp[0]) && (0x06 == tmp[1]))
@@ -176,14 +185,14 @@ static struct rte_kni *packet_classify(ingress_classifier_t *ic_ptr,
 	if (!((0x08 == tmp[0]) && (0x00 == tmp[1])))
 	{
 		/* Ether Type 0x0800 is IPv4.
-		   Any packet other tht IPv4 is considers as broadcast 
+		   Any packet other than IPv4 is considers as broadcast 
 		   classify them as BROADCAST so it can be broadcasted
 		   to all KNIs */
 	 	*pkt_type = PKT_CLASS_BROADCAST;
 		return NULL;
 	}
 
-	if (0 == memcmp(&ip_hdr_ptr->dst_addr,bcast_ip_addr,IP_ADDR_SIZE))
+	if (dst_ip_addr == bcast_ip_addr)
 	{
 		/* dest IP addr match with broadcast address 
 		   classify it as BROADCAST so it can be broadcasted
@@ -197,18 +206,18 @@ static struct rte_kni *packet_classify(ingress_classifier_t *ic_ptr,
 	for(idx=0; idx < ic_ptr->kni_count; idx++)
 	{
 #ifdef TRACE
-		unsigned char *p = (unsigned char *) &ip_hdr_ptr->dst_addr;
+		char local_ip_addr_str[STR_IP_ADDR_SIZE];
+
 		pfm_trace_msg("Comparing IP Add. "
-				"Pkt=%d.%d.%d.%d. Tbl=%d.%d.%d.%d. Idx=%d",
-				p[0], p[1], p[2], p[3],
-				ic_ptr->kni_map[idx].local_ip_addr[0],
-				ic_ptr->kni_map[idx].local_ip_addr[1],
-				ic_ptr->kni_map[idx].local_ip_addr[2],
-				ic_ptr->kni_map[idx].local_ip_addr[3],
+				"Pkt=%s. Tbl=%s. Idx=%d",
+				pfm_ip2str(dst_ip_addr,dst_ip_addr_str),
+				pfm_ip2str(
+					ic_ptr->kni_map[idx].local_ip_addr,
+					local_ip_addr_str),
 				idx);
 #endif
-		if (0 == memcmp(ic_ptr->kni_map[idx].local_ip_addr,
-			&ip_hdr_ptr->dst_addr,IP_ADDR_SIZE))
+
+		if (ic_ptr->kni_map[idx].local_ip_addr == dst_ip_addr)
 		{
 			pfm_trace_msg("Both IP's are mathcing");
 			/* yet it match with one KNI IP addres */
@@ -222,12 +231,8 @@ static struct rte_kni *packet_classify(ingress_classifier_t *ic_ptr,
 		   KNI IP addr. Hence it is not address to
 		   any local address. Classify it as UNKNOWN
 		   so it can be dropped.  */		
-		pfm_trace_msg("Droping pkts with wrong DstAddr="
-				"%d.%d.%d.%d",
-				*(unsigned char *)&ip_hdr_ptr->dst_addr,
-				*(((unsigned char *)&ip_hdr_ptr->dst_addr)+1),
-				*(((unsigned char *)&ip_hdr_ptr->dst_addr)+2),
-				*(((unsigned char *)&ip_hdr_ptr->dst_addr)+3));
+		pfm_trace_msg("Droping pkts with wrong DstAddr=%s",
+				pfm_ip2str(dst_ip_addr, dst_ip_addr_str));
 		*pkt_type = PKT_CLASS_UNKNOWN;
 		return NULL;
 	}
@@ -247,7 +252,7 @@ static struct rte_kni *packet_classify(ingress_classifier_t *ic_ptr,
 	}
 
 	/* It is a UDP packet. Check the dst port is GTP port no */
-	if (ntohs(udp_hdr_ptr->dst_port) == ic_ptr->kni_map[idx].gtp_port_no)
+	if (ntohs(udp_hdr_ptr->dst_port) == ic_ptr->kni_map[idx].port_no)
         {
 		/* Dest port is GTP port. Hence classify it as GTP
 		   so that it can be forwared to Worker thread */
@@ -300,7 +305,7 @@ void  ingress_classify(  const int link_id,
 		return;
 	}
 
-	ic_ptr = &ingress_classifier[link_id];
+	ic_ptr = &ingress_classifier_g[link_id];
 
 	for (idx=0; idx < rx_sz; idx++)
 	{

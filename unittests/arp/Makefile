@@ -2,14 +2,24 @@
 # Copyright(c) 2010-2014 Intel Corporation
 
 # binary name
-APP = arp_unit_test.exe
+APP = cuup.exe
 
 # all source are stored in SRCS-y
-SRCS-y :=	main.c \
+SRCS-y :=	cuup.c \
 		pfm.c \
 		pfm_log.c \
+		pfm_worker_loop.c \
 		pfm_link.c \
-		pfm_arp.c
+		pfm_rx_loop.c \
+		pfm_tx_loop.c \
+		pfm_kni.c \
+		pfm_ring.c \
+		pfm_classifier.c \
+		pfm_dist_loop.c	\
+		pfm_cli.c	\
+		pfm_route.c	\
+		pfm_arp.c	\
+		pfm_utils.c
 
 # Build using pkg-config variables if possible
 ifeq ($(shell pkg-config --exists libdpdk && echo 0),0)
@@ -59,8 +69,8 @@ $(error This application can only operate in a linux environment, \
 please change the definition of the RTE_TARGET environment variable)
 endif
 
-CFLAGS += -O3 -g -DTRACE  -DCONSLOG
-#CFLAGS += -O3 -g -DTRACE  
+#CFLAGS += -O3 -g -DTRACE  -DCONSLOG
+CFLAGS += -O3 -g -DTRACE  
 CFLAGS += -DALLOW_EXPERIMENTAL_API
 CFLAGS += $(WERROR_FLAGS)
 

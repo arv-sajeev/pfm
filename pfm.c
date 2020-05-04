@@ -9,7 +9,6 @@
 #include "pfm_rx_loop.h"
 #include "pfm_tx_loop.h"
 #include "pfm_dist_loop.h"
-#include "pfm_route.h"
 #include "pfm_worker_loop.h"
 #include "pfm_classifier.h"
 #include "pfm_kni.h"
@@ -83,7 +82,6 @@ pfm_retval_t pfm_init(int argc, char *argv[])
 			TX_RING_NAME,TX_RING_SIZE, rte_socket_id());
 		return PFM_FAILED;
         }
-	printf("Tx Ring Ptr=%p\n",sys_info_g.tx_ring_ptr);
 
         pfm_trace_msg("Ring '%s' opened",TX_RING_NAME);
 
@@ -116,14 +114,6 @@ pfm_retval_t pfm_init(int argc, char *argv[])
 		return PFM_FAILED;
 	}
 
-	ret = lpm_init();
-	if (ret == -1)	{
-		pfm_log_rte_err(PFM_FAILED,
-				"Failed initializing lpm"
-				"Terminating");
-	}
-	pfm_trace_msg("initialised lpm table for route entries");
-	printf("\nLPM initialised\n");
  	pfm_trace_msg("DPPF Initialization successful");
 
 	return PFM_SUCCESS;
@@ -196,27 +186,6 @@ pfm_retval_t pfm_start_pkt_processing(void)
 	return PFM_SUCCESS;
 }
 
-pfm_retval_t pfm_end_point_add(	const int link_id,
-				const char *kni_name,
-				const uint32_t local_ip_addr,
-				const uint16_t local_gtp_port_num,
-                        	const end_point_info_t ep[],
-				const int ep_count)
-{
-	printf("link_id=%d, kni_name=%p, lIp=%d, port=%d, ep=%p, ep_count=%d\n",
-		link_id,kni_name,local_ip_addr,local_gtp_port_num,ep,ep_count);
-	return 1;
-}
-
-void pfm_data_req(	const uint32_t remote_ip,
-			const uint16_t port_num,
-			const uint16_t tunnel_id,
-			struct rte_mbuf *mbuf)
-{
-	printf("remote_ip=%d,port_num=%d,tunnel_id=%d,mbuf=%p\n",
-			remote_ip,port_num, tunnel_id, mbuf);
-	return;
-}
 void pfm_terminate(void)
 {
 	force_quit_g = PFM_TRUE;
@@ -227,7 +196,6 @@ void link_state_change_callback(int link_id, ops_state_t ops_state)
 {
 	printf("Link state of link %d changed to %s\n",link_id,
                 (( OPSSTATE_ENABLED == ops_state) ? "ENABLED": "DISABLED"));
-	link_state_change(link_id,ops_state);
+	kni_state_change(link_id,ops_state);
 }
-
 

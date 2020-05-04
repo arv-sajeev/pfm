@@ -26,8 +26,6 @@ int dist_loop(__attribute__((unused)) void * args)	{
 		    "Started distributor on lcore [%d]",
 		    rte_lcore_id());
 
-	printf("Started distributor on lcore [%d]",rte_lcore_id());
-
 	while (force_quit_g != PFM_TRUE)	{
 		// Get packets from the ring
 
@@ -38,8 +36,6 @@ int dist_loop(__attribute__((unused)) void * args)	{
 		if (rx_sz > 0)	{
 			pfm_trace_msg("Received %d packets from rx_loop on distLoop",
 			      	      rx_sz);
-
-			printf("Received %d packets from rx_loop on distLoop\n",rx_sz);
 		}
 		// Process these packets using distributor api 
 		
@@ -49,8 +45,6 @@ int dist_loop(__attribute__((unused)) void * args)	{
 		if (tx_sz > 0)	{
 			pfm_trace_msg("Transmitted %d packets from distLoop to various workerLoops",
 			      	       tx_sz);
-			printf("Transmitted %d packets from distLoop to various workerLoops\n",tx_sz);
-
 		}
 		
 		// Get the processed packets from workers
@@ -61,7 +55,6 @@ int dist_loop(__attribute__((unused)) void * args)	{
 		if (ret_rx > 0)	{
 			pfm_trace_msg("Received %d packets from workers on distLoop",
 				      ret_rx);
-			printf("Received %d packets from workers on distLoop\n",ret_rx);
 		}
 		// Send the received packets to the txLoop
 		
@@ -72,12 +65,10 @@ int dist_loop(__attribute__((unused)) void * args)	{
 		if (ret_tx > 0)	{
 			pfm_trace_msg("Enqueued %d packets from distLoop to txLoop",
 				      ret_tx);
-			printf("Enqueued %d packets from distLoop to txLoop\n",ret_tx);
 		}
 	}
 
 	pfm_log_msg(PFM_LOG_ALERT,"Forced exit from distributor");
-	printf("Exiting distributor");
 	return 1;
 }
 

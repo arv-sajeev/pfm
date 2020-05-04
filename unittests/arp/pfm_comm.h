@@ -1,6 +1,8 @@
 #ifndef __PFM_COMM_H__
 #define __PFM_COMM_H__ 1
-
+#include <rte_ether.h>
+#include "pfm.h"
+#define MAX_LCORES	32
 #define MAX_LINK_COUNT  5
 #define LAST_LINK_ID  MAX_LINK_COUNT
 #define MAX_KNI_PORTS	5
@@ -11,7 +13,6 @@
 #define MBUF_PRIV_SIZE	0
 
 /* DPDK object names */
-#include "pfm.h"
 #define	MBUF_NAME	"MBUF"
 #define	TX_RING_NAME	"TXRING"
 #define	RX_RING_NAME	"RXRING"
@@ -22,8 +23,9 @@
 #define TX_BURST_SIZE   32
 #define RX_BURST_SIZE   TX_BURST_SIZE
 
-#define MAC_ADDR_SIZE	6
+#define MAC_ADDR_SIZE	RTE_ETHER_ADDR_LEN
 #define IP_ADDR_SIZE	4
+#define STR_IP_ADDR_SIZE	20
 #define DEFAULT_MTU_SIZE        1500
 #define DEFAULT_MIN_MTU_SIZE    68
 #define DEFAULT_MAX_MTU_SIZE    65535
@@ -39,6 +41,7 @@ enum {
 	LCORE_MIN_LCORE_COUNT
 };
 
+#define MAX_WORKERS	(MAX_LCORES - LCORE_WORKER)
 typedef enum
 {
 	ADMSTATE_UNLOCKED,
@@ -53,48 +56,18 @@ typedef enum
 	OPSSTATE_FAULTY
 } ops_state_t;
 
-
-
-typedef struct {
-	uint8_t addr_bytes[IP_ADDR_SIZE];
-	//uint32_t addr_number;
-} ipv4_addr_t;
-
-static inline void ipv4_addr_copy(ipv4_addr_t *ip_from,ipv4_addr_t *ip_to)	{
-	
-	uint8_t *from_bytes = (uint8_t *)(ip_from->addr_bytes);
-	uint8_t *to_bytes   = (uint8_t *)(ip_to->addr_bytes);
-
-	to_bytes[0] = from_bytes[0];
-	to_bytes[1] = from_bytes[1];
-	to_bytes[2] = from_bytes[2];
-	to_bytes[3] = from_bytes[3];
-}
-
-static inline int ipv4_addr_equal(const ipv4_addr_t *ip_from,const ipv4_addr_t *ip_to)	{
-	const uint32_t *ip1 =  (const uint32_t*)ip_from->addr_bytes;
-	const uint32_t *ip2 =  (const uint32_t*)ip_to->addr_bytes;
-
-	return (*ip1 == *ip2);
-
-}
-
-typedef struct{
-	uint8_t addr_bytes[MAC_ADDR_SIZE];
-} mac_addr_t;
-
 typedef struct {
 	int kniIdx;
-	ipv4_addr_t	ip_addr;
-	ipv4_addr_t	network_mask;
-	ipv4_addr_t	default_gateway_ip;
-} local_ipv4_addr_t;
+	pfm_ip_addr_t	ip_addr;
+	pfm_ip_addr_t	network_mask;
+	pfm_ip_addr_t	default_gateway_ip;
+} local_ip_addr_t;
 
 typedef struct {
 	int		lcore_count;
 	int		kni_count;
 	int		local_ip_count;
-	local_ipv4_addr_t	local_ip_addr_list[MAX_LOCAL_IP_COUNT];
+	local_ip_addr_t	local_ip_addr_list[MAX_LOCAL_IP_COUNT];
 	struct rte_mempool *mbuf_pool;
         struct rte_ring *rx_ring_ptr ;
         struct rte_ring *tx_ring_ptr ;

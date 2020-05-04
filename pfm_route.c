@@ -52,7 +52,7 @@ lpm_init(void)	{
 
 
 int 
-pfm_route_add(ipv4_addr_t net_mask,uint8_t net_mask_depth,ipv4_addr_t gateway_addr,uint16_t link_id)	{
+pfm_route_add(pfm_ip_addr_t net_mask,uint8_t net_mask_depth,pfm_ip_addr_t gateway_addr,uint16_t link_id)	{
 	int ret;
 	uint32_t key;
 	if (lpm_up == PFM_FALSE)	
@@ -106,7 +106,7 @@ pfm_route_add(ipv4_addr_t net_mask,uint8_t net_mask_depth,ipv4_addr_t gateway_ad
 
 
 route_t* 
-pfm_route_query(ipv4_addr_t ip_addr)	{
+pfm_route_query(pfm_ip_addr_t ip_addr)	{
 	int ret;
 	uint32_t key;
 	ret = rte_lpm_lookup(lpm_mapper,
@@ -130,8 +130,8 @@ pfm_route_query(ipv4_addr_t ip_addr)	{
 
 void 
 pfm_route_print(FILE *fp)	{
-	char net_mask[PFM_ROUTE_NAME_SIZE];
-	char gateway_addr[PFM_ROUTE_NAME_SIZE];
+	char net_mask[STR_IP_ADDR_SIZE];
+	char gateway_addr[STR_IP_ADDR_SIZE];
 	if (fp == NULL)	{
 		pfm_log_msg(PFM_LOG_ERR,
 			    "Invalid file stream provided");

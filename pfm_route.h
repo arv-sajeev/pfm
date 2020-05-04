@@ -6,7 +6,7 @@
 #include <rte_lpm.h>
 
 #define PFM_ROUTE_LPM_MAX_ENTRIES 	32
-#define PFM_ROUTE_LPM_MAX_TBL8S		(1 << 3)
+#define PFM_ROUTE_LPM_MAX_TBL8S		8
 #define PFM_ROUTE_LPM_FLAGS		0
 #define PFM_ROUTE_LPM_NAME		"PFM_ROUTE_LPM"
 
@@ -15,9 +15,9 @@
 
 typedef struct route_table_entry {
 	uint8_t 	link_id;
-	ipv4_addr_t 	net_mask;
+	pfm_ip_addr_t 	net_mask;
 	uint8_t	net_mask_depth;
-	ipv4_addr_t	gateway_addr;
+	pfm_ip_addr_t	gateway_addr;
 } route_t;
 
 typedef struct route_table	{
@@ -50,9 +50,9 @@ typedef struct route_table	{
  *
  *	@params
  *	 link_id 	- 	the linkid that is to be updated	(uint16_t)
- *	 net_mask	-	net_mask that is to be updated		(ipv4_addr_t)
+ *	 net_mask	-	net_mask that is to be updated		(pfm_ip_addr_t)
  *	 net_mask_depth - 	depth of the net_mask to be updated	(uint16_t)
- *	 gateway_addr	-	address of gateway to be taken 	(ipv4_addr_t)
+ *	 gateway_addr	-	address of gateway to be taken 	(pfm_ip_addr_t)
  *
  *	@returns
  *	 0 if success or -error number
@@ -61,7 +61,7 @@ typedef struct route_table	{
  *****************/
 
 
-int pfm_route_add(ipv4_addr_t net_mask,uint8_t net_mask_depth,ipv4_addr_t gateway_addr,uint16_t link);
+int pfm_route_add(pfm_ip_addr_t net_mask,uint8_t net_mask_depth,pfm_ip_addr_t gateway_addr,uint16_t link);
 
 
 /********************
@@ -71,14 +71,14 @@ int pfm_route_add(ipv4_addr_t net_mask,uint8_t net_mask_depth,ipv4_addr_t gatewa
  * 	search for entry for given ip address and return route info
  *
  * 	@params
- * 	 ip_addr	-	key to query route table		(ipv4_addr_t)
+ * 	 ip_addr	-	key to query route table		(pfm_ip_addr_t)
  * 
  * 	@returns 
  * 	 the route table entry if found, null other wise 		(route_t)
  *
  *********************/
 
-route_t* pfm_route_query(ipv4_addr_t ip_addr);
+route_t *pfm_route_query(pfm_ip_addr_t ip_addr);
 
 /**********************
  *
