@@ -12,6 +12,8 @@
 #include "pfm_ring.h"
 #include "pfm_kni.h"
 #include "pfm_classifier.h"
+#include "pfm_arp.h"
+#include "pfm_route.h"
 
 typedef struct
 {
@@ -285,11 +287,13 @@ void  ingress_classify(  const int link_id,
 			struct rte_mbuf *pkts[],
 			const int rx_sz)
 {
-	int idx;
+	int idx,ret;
 	struct rte_mbuf *ring_pkts[RX_BURST_SIZE];
         struct rte_mbuf *kni_pkts[RX_BURST_SIZE];
         struct rte_mbuf *kni_bCast_pkts[2];
+	struct rte_mbuf *arp_pkt;
         int kni_pkt_count=0, ring_pkt_count=0;
+	struct rte_ether_hdr *eth_hdr_ptr;
 	struct rte_kni *kni_ptr;
 	struct rte_kni *last_kni_ptr=0;
 	ingress_classifier_t *ic_ptr;
@@ -345,11 +349,29 @@ void  ingress_classify(  const int link_id,
 				break;
 			case PKT_CLASS_BROADCAST:
 				pfm_trace_msg(
-					"Broadcast Pkt detcted on LinkId=%d, pktId=%d",
+					"Broadcast Pkt detected on LinkId=%d, pktId=%d",
 					link_id,idx);
-				/* All braodcast packet need to be
+				/* All broadest packet need to be
 				   closed and send to all KNI associated
 				   to the link */
+				unsigned char* packet = rte_pktmbuf_mtod(pkts[idx],
+						unsigned char*);
+				if ((0x08 == packet[12]) && (0x06 == packet[13]) && (0x02 == packet[21]))
+				{
+					pfm_trace_msg("Received an arp packet");
+					printf("Received an arp packet\n");
+
+					arp_pkt = rte_pktmbuf_clone(pkts[idx],sys_info_g.mbuf_pool);	
+					ret = pfm_arp_process_reply(arp_pkt,link_id);
+					if (ret == -1)	{
+						pfm_log_msg(PFM_LOG_ERR,
+							    "Could not process arp reply");
+					}
+					else  {
+						pfm_trace_msg("Processed arp reply successfully");
+					}
+				}
+
 				for (i=0; i < (ic_ptr->kni_count-1); i++)
 				{
 					pfm_trace_msg(

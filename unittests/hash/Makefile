@@ -2,24 +2,10 @@
 # Copyright(c) 2010-2014 Intel Corporation
 
 # binary name
-APP = cuup.exe
+APP = hash_unit_test.exe
 
 # all source are stored in SRCS-y
-SRCS-y :=	cuup.c \
-		pfm.c \
-		pfm_log.c \
-		pfm_worker_loop.c \
-		pfm_link.c \
-		pfm_rx_loop.c \
-		pfm_tx_loop.c \
-		pfm_kni.c \
-		pfm_ring.c \
-		pfm_classifier.c \
-		pfm_dist_loop.c	\
-		pfm_route.c	\
-		pfm_arp.c	\
-		pfm_cli.c	\
-		pfm_utils.c
+SRCS-y := hash_unit_test.c
 
 # Build using pkg-config variables if possible
 ifeq ($(shell pkg-config --exists libdpdk && echo 0),0)

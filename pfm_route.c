@@ -29,7 +29,6 @@ lpm_init(void)	{
 			    "LPM already initialised");
 	}
 
-	struct  rte_lpm_config lpm_config;
 	struct rte_lpm_config pfm_lpm_config = {
 
         .max_rules      =       PFM_ROUTE_LPM_MAX_ENTRIES,
@@ -169,7 +168,7 @@ pfm_route_print(FILE *fp)	{
 	}
 	pfm_trace_msg("printing route table");
 	if (entry_count == 0)	{
-		fprintf(fp,"Routing table is empty");
+		fprintf(fp,"Routing table is empty\n");
 		return;
 	}
 

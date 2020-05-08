@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <rte_common.h>
 #include <rte_ethdev.h>
+#include <rte_cycles.h>
+#include <rte_timer.h>
+
 
 #include "pfm.h"
 #include "pfm_comm.h"
