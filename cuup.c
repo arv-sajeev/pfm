@@ -7,6 +7,7 @@
 #include "pfm_comm.h"
 #include "pfm_utils.h"
 #include "pfm_cli.h"
+#include "pfm_route.h"
 
 #define GTP_PORTNO	2152
 
@@ -80,7 +81,7 @@ int main(int argc, char *argv[])
 	if (PFM_SUCCESS != ret_val)
 	{
         	pfm_log_msg(PFM_LOG_WARNING,
-			"DPPF_StartPktProcessing() failed");
+			"pfm_start_pkt_processing() failed");
 		terminate_program();
 		exit(2);
 	}
@@ -117,13 +118,16 @@ int main(int argc, char *argv[])
 }
 
 /*************
+ *
  * pfm_data_ind()
  * 
- * When DPPF wants to pass a packet to applicaion, it invokes this function.
+ * When PFM wants to pass a packet to application, it invokes this function.
  * This is a dummy function which need to be implemented by application
- * It needs to be replaced when applicaiton is implemented.
+ * It needs to be replaced when application is implemented.
+ *
  *
  ****************/
+
 void pfm_data_ind(      const pfm_ip_addr_t remote_ip_addr,
 			const pfm_ip_addr_t local_ip_addr,
 			pfm_protocol_t protocol,
@@ -139,7 +143,7 @@ void pfm_data_ind(      const pfm_ip_addr_t remote_ip_addr,
 
         printf("Invoked pfm_data_ind(remote_ip=%s,local_ip=%s,"
 			"protocol=%d,"
-			"remote_port=%d,local_port=%d,bufPtr=%p\n",
+			"remote_port=%d,local_port=%d,buffer pointer=%p\n",
 			pfm_ip2str(remote_ip_addr,remote_ip_addr_str),
 			pfm_ip2str(local_ip_addr,local_ip_addr_str),
 			protocol,

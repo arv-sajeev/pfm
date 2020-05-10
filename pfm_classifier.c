@@ -78,7 +78,7 @@ pfm_retval_t pfm_ingress_classifier_add(const int link_id,
 		/* calling the function 1st time. Init the array */
 		pfm_trace_msg("Invoking pfm_ingress_classifier_add() "
 				"first time. "
-				"Init ingress_classifier_g[] arrary");
+				"Init ingress_classifier_g[] array");
 		for (idx=0; idx <= LAST_LINK_ID; idx++)
 		{
 			ingress_classifier_g[idx].kni_count = 0;

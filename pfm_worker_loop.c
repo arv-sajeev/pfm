@@ -13,6 +13,8 @@
 #include "pfm_comm.h"
 #include "pfm_utils.h"
 #include "pfm_kni.h"
+#include "pfm_arp.h"
+#include "pfm_route.h"
 #include "pfm_link.h"
 #include "pfm_worker_loop.h"
 
@@ -123,12 +125,19 @@ int worker_loop( __attribute__((unused)) void *args)
 			pfm_trace_msg("Sent %d packets back to "
 					"distributor from worker core [%d]",
 					tx_sz, lcore_id);
+			printf("Sent %d packets back to "
+					"distributor from worker core [%d]",
+					tx_sz, lcore_id);
 		}
 
 
 		if (rx_sz > 0 )	{
 
 			pfm_trace_msg("Received %d packets from distributor"
+					"on worker core [%d]",
+					rx_sz,
+					lcore_id);
+			printf("Received %d packets from distributor"
 					"on worker core [%d]",
 					rx_sz,
 					lcore_id);
@@ -216,66 +225,32 @@ static const unsigned char *dst_mac_addr_get(pfm_ip_addr_t remote_ip_addr,
 			int *link_id)
 {
 
-#ifdef SAJEEV
 	pfm_arp_entry_t *arp_ptr;
 	route_t	*route_ptr;
-
-	arp_ptr = arp_query(remote_ip_addr);
+	// Check if entry available in arp table as next hop address
+	arp_ptr = pfm_arp_query(remote_ip_addr);
 	if (NULL != arp_ptr)
-	{
+	{	
+		
 		*link_id = arp_ptr->link_id;
-		return arp_ptr->mac_addr;
+		return arp_ptr->mac_addr.addr_bytes;
 	}
 
-	route_ptr = route_query(remote_ip_addr);
-	if (NULL !- route_ptr)
+	// Else check for default for the ip address in the lpm table
+	route_ptr = pfm_route_query(remote_ip_addr);
+	if (NULL != route_ptr)
 	{
 		arp_ptr =
-		   arp_query(route_ptr->gateway_addr);
+		   pfm_arp_query(route_ptr->gateway_addr);
 		if (NULL != arp_ptr)
 		{
 			*link_id = arp_ptr->link_id;
-			return arp_ptr->mac_addr;
+			return arp_ptr->mac_addr.addr_bytes;
 		}
 	}
-#else
-	typedef struct 
-	{
-		pfm_ip_addr_t ip_addr;
-		unsigned char mac_addr[MAC_ADDR_SIZE];
-		int link_id;
-	} arp_table_t;
-	static arp_table_t arp_tbl[] =
-	{
-		{
-			.ip_addr = 0xc0a83973,  // 192.168.57.115
-			//.mac_addr = { 0x08, 0x00, 0x27, 0xba, 0xce, 0xf8 },
-			.mac_addr = { 0x08, 0x00, 0x27, 0x0f, 0xe6, 0x2c },
-			.link_id = 0
-		},
-		{
-			.ip_addr = 0xc0a83A73,  // 192.168.58.115
-			//.mac_addr = {0x08, 0x00, 0x27, 0x0D, 0xBF, 0x9D},
-			.mac_addr = {0x08, 0x00, 0x27, 0x0D, 0xBF, 0x9D},
-			.link_id = 1
-		},
-	};
 
-	int sz = sizeof(arp_tbl)/ sizeof(arp_table_t);
-
-	for(int i=0; i < sz; i++)
-	{
-		if (arp_tbl[i].ip_addr == remote_ip_addr)
-		{
-			*link_id = arp_tbl[i].link_id;
-			return arp_tbl[i].mac_addr;
-		}
-	}
-	
-#endif
 	return NULL;
 }
-
 
 /**************************
  *

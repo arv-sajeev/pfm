@@ -34,7 +34,7 @@
 
 
 
-static arp_entry_t arp_table[PFM_ARP_TABLE_ENTRIES];
+static pfm_arp_entry_t arp_table[PFM_ARP_TABLE_ENTRIES];
 static pfm_bool_t arp_up = PFM_FALSE;
 static struct rte_hash* hash_mapper;
 
@@ -86,7 +86,7 @@ arp_init(void)	{
 //////////////////////////////////////////////////////////////////////////////////////////
 
 static int 
-arp_clear_entry(arp_entry_t* arp_entry){
+arp_clear_entry(pfm_arp_entry_t* arp_entry){
 	int ret;
 	char dst_ip_str[STR_IP_ADDR_SIZE];
 	struct rte_ether_addr empt_mac = {
@@ -120,7 +120,7 @@ refresh_callback(__rte_unused struct rte_timer * timer,void * args)	{
 	int ret;
 	char dst_ip_str[STR_IP_ADDR_SIZE];
 	unsigned char broadcast_addr[] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
-	arp_entry_t* arp_entry = (arp_entry_t*)args;	
+	pfm_arp_entry_t* arp_entry = (pfm_arp_entry_t*)args;	
 	uint64_t ticks = rte_get_timer_hz();
 	ticks = 5*(arp_entry->try_count+1)*ticks;
 
@@ -203,7 +203,7 @@ pfm_arp_process_reply(struct rte_mbuf *pkt,uint16_t link_id)	{
 		return -1;
 	}
 
-	arp_entry_t* arp_entry = &arp_table[key];
+	pfm_arp_entry_t* arp_entry = &arp_table[key];
 	// Fill in the arp entry 
 	arp_entry->dst_ip_addr = dst_ip_addr;
 	arp_entry->src_ip_addr = src_ip_addr;
@@ -230,7 +230,7 @@ pfm_arp_process_reply(struct rte_mbuf *pkt,uint16_t link_id)	{
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-arp_entry_t* 
+pfm_arp_entry_t* 
 pfm_arp_query(pfm_ip_addr_t ip_addr)	{
 
 	int ret;
@@ -292,7 +292,7 @@ pfm_arp_print (FILE * fp)
 	}
 
 	fprintf(fp,"Number of entries :: %u\n",hash_count);
-	arp_entry_t *entry;
+	pfm_arp_entry_t *entry;
 	fprintf(fp,"| %-20s | %-17s | %-5s | %-10s | %-20s |\n",
 		"Dst Address","HW Address","Link ID","Refresh #","Src address");
 

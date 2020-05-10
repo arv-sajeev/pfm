@@ -1,5 +1,5 @@
-#ifndef __PFM_ROUTE_H__
-#define __PFM_ROUTE_H__ 1
+#ifndef __PFM_ARP_H__
+#define __PFM_ARP_H__ 1
 
 #include <rte_jhash.h>
 #include "pfm_comm.h"
@@ -16,7 +16,7 @@ typedef struct arp_table_entry {
 	struct rte_timer refresh_timer;
 	uint8_t try_count;
 
-} arp_entry_t;
+} pfm_arp_entry_t;
 
 
 
@@ -51,11 +51,11 @@ int pfm_arp_process_reply(struct rte_mbuf *pkt,uint16_t link_id);
 	@params 
 		ip_addr	-	target ip address for arp entry query
 	@return 
-		arp_entry_t*	- NULL if entry doesn't exist, else  pointer to arp_entry 
+		pfm_arp_entry_t*	- NULL if entry doesn't exist, else  pointer to arp_entry 
 
 **************************/
 
-arp_entry_t* pfm_arp_query(pfm_ip_addr_t ip_addr);
+pfm_arp_entry_t* pfm_arp_query(pfm_ip_addr_t ip_addr);
 
 
 /*************************
@@ -70,5 +70,7 @@ arp_entry_t* pfm_arp_query(pfm_ip_addr_t ip_addr);
 		void	
 void pfm_arp_print(FILE *fp); 
 *************************/
+
+void pfm_arp_print(FILE *fp);
 
 #endif

@@ -1,0 +1,25 @@
+#addr.edpat;
+
+> eth1
+!------Ethernet header
+$PFMREMOTEMAC	!00-05	! Destination MAC
+$TCLOCALMAC   !06-11  ! Source      MAC
+08 00 		!12-13	! Ether type ipv4
+!------IPV4 header
+45		!14	! Version and IHL
+00		!15	! DSCP
+00 2E		!16-17	! Total length
+7D 86		!18-19	! fragment ID
+40 00		!20-21  ! flags
+40		!22	! Time to live
+11		!23	! Protocol UDP 17
+&14-33		!24-25	! Check sum of the IP header 
+$TCLOCALIP	!26-29	! Source IP
+$PFMREMOTEIP    !30-33	! Destination IP
+!------UDP header
+01 02		!34-35	! Source port
+08 68 		!36-37	! Destination port ! GTP port no 2152 0868
+00 1A		!38-39	! Lenght of the UDP header 26
+00 00 		!40 41	! Check sum
+11 22 33 44 55 66 77 88
+88 77 66 55 44 33 22 11;
