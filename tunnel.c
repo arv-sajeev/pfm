@@ -13,7 +13,9 @@ static tunnel_t tunnel_table_g[MAX_TUNNEL_COUNT];
 static uint32_t last_allocated_slot_g = 0;
 static rte_hash *hash_mapper;
 static pfm_bool_t hash_up;
-
+/*
+Using pointer to a constant concept here to make sure changes are not made to the tunnel_entry returned from tunnel_get
+*/
 
 static int 
 hash_init()	
@@ -47,7 +49,9 @@ hash_init()
 
 }
 
-tunnel_t *      
+
+
+const tunnel_t*
 tunnel_get(tunnel_key_t *key)
 {
 	int ret;	
@@ -251,6 +255,8 @@ void
 tunnel_print_show(FILE *fp, tunnel_key_t *key)
 {
 	int ret;	
+	tunnel_t* entry;
+	char tunnel_ip_r[STR_IP_ADDR_SIZE],tunnel_ip_l[STR_IP_ADDR_SIZE];
 	if (hash_up == PFM_FALSE)	
 	{
 		ret = hash_init();
@@ -262,14 +268,97 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 		}
 		pfm_trace_msg("Initialised tunnel_table");
 	}
+	if (fp == NULL)
+	{
+		pfm_log_msg(PFM_LOG_ERR,
+			    "Invalid log error");
+		return NULL;
+	}
 	
+	ret = rte_hash_lookup_data(hash_mapper,
+				   (void *)key,
+				   (void *)entry);
+	if (ret < 0)	
+	{
+		if ( ret ==  -ENOENT)  
+		{ 
+			pfm_log_msg(PFM_LOG_ERR,
+				    "entry not in tunnel_table");			
+		}
+		if (ret == -EINVAL)
+		{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "invalid arguments for tunnel_print_show");
+		}
+		return NULL;
+	}
+	switch(entry.tunnel_type)	
+	{
+		case TUNNEL_TYPE_PDUS:
+
+				fprintf(fp,"Route list\n"
+					   "Tunnel local ip  :   %-16s\n"
+					   "Tunnel id        :   %-16d\n"
+					   "Tunnel remote ip :   %-16s\n"
+					   "Tunnel type	     :   %-16s\n"
+					   "PDUS id	     :   %-16d\n"
+					   "Flow count	     :   %-16d\n"
+					   "\n\nFlows\n"
+					   "%-7s %-6s %-6s\n",
+					   pfm_ip2str(entry.key.ip_addr,tunnel_ip_l),
+					   entry.key.te_id,
+					   pfm_ip2str(entry.remote_ip,tunnel_ip_r),
+					   "PDU",
+					   entry.pdus_info.pdus_id,
+					   entry.pdus_info.flow_count,
+					   "Flow id",
+					   "Status",
+				           "DRB id");
+				for (int i = 0;i < entry.pdus_info.flow_count;i++)
+				{
+					fprintf(fp,"%-7d %-6d %-6d",
+					    entry.pdus_info.flow_list[i].flow_id,
+					    entry.pdus_info.flow_list[i].r_qos_status,
+					    entry.pdus_info.flow_list[i].mapped_drb_idx);
+				}
+				break;
+
+		case TUNNEL_TYPE_DRB:
+
+
+				fprintf(fp,"Route list\n"
+					   "Tunnel local ip  		:   %-16s\n"
+					   "Tunnel id       		:   %-16d\n"
+					   "Tunnel remote ip 		:   %-16s\n"
+					   "Tunnel type	     		:   %-16s\n"
+					   "\n\n DRB info\n"
+				           "DRB id	     		:   %-16d\n"
+					   "is_default	     		:   %-16d\n"
+					   "is_dl_sdap_hdr_enabled	:   %-16d\n"
+					   "is_ul_sdap_hdr_enabled	:   %-16d\n"
+					   "mapped_flow_idx		:   %-16d\n"
+					   "mapped_pdus_idx		:   %-16d\n",
+					   pfm_ip2str(entry.key.ip_addr,tunnel_ip_l),
+					   entry.key.te_id,
+					   pfm_ip2str(entry.remote_ip,tunnel_ip_r),
+					   "DRB",
+					   entry.drb_info.drb_id,
+					   entry.is_default,
+					   entry.is_dl_sdap_hdr_enabled,
+					   entry.is_ul_sdap_hdr_enabled,
+					   entry.mapped_flow_idx,
+					   entry.mapped_pdus_idx);
+				break;	
+	}
+		
 	return;
 }
 
 void        
 tunnel_print_list(FILE *fp, tunnel_type_t type)
 {
-	int ret;	
+	int ret;
+	char tunnel_ip_r[STR_IP_ADDR_SIZE],tunnel_ip_l[STR_IP_ADDR_SIZE];	
 	if (hash_up == PFM_FALSE)	
 	{
 		ret = hash_init();
@@ -281,9 +370,14 @@ tunnel_print_list(FILE *fp, tunnel_type_t type)
 		}
 		pfm_trace_msg("Initialised tunnel_table");
 	}
-	printf("tunnel_print_show(fp=%p,type=%d) invoked. "
-		"But not implemented\n",
-		fp,type);
+	fprintf(fp,"\nTunnel list\n"
+		   "%-16s | %-6s | %-16s | %-11s\n",
+		   "Local ip addr",
+		   "tun id",
+		   "Remote ip addr",
+		   "Tunnel type");
+		   
+		   pfm_ip2str(entry.key.ip_addr,tunnel_ip_r)
 	return;
 }
 
