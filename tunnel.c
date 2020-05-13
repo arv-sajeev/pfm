@@ -358,6 +358,11 @@ void
 tunnel_print_list(FILE *fp, tunnel_type_t type)
 {
 	int ret;
+	uint32_t hash_count,pos = 0;
+	const void* key_ptr;
+	void  *data_ptr;
+	
+	
 	char tunnel_ip_r[STR_IP_ADDR_SIZE],tunnel_ip_l[STR_IP_ADDR_SIZE];	
 	if (hash_up == PFM_FALSE)	
 	{
@@ -370,14 +375,28 @@ tunnel_print_list(FILE *fp, tunnel_type_t type)
 		}
 		pfm_trace_msg("Initialised tunnel_table");
 	}
+	hash_count = rte_hash_count(hash_mapper);
+	if (hash_count == 0)	
+	{
+		fprintf("Tunnel table is empty\n");
+		return;
+	}
+	
 	fprintf(fp,"\nTunnel list\n"
 		   "%-16s | %-6s | %-16s | %-11s\n",
 		   "Local ip addr",
 		   "tun id",
 		   "Remote ip addr",
 		   "Tunnel type");
-		   
-		   pfm_ip2str(entry.key.ip_addr,tunnel_ip_r)
+	
+	while(rte_hash_iterate(hash_mapper,&key_ptr,&data_ptr,&pos) >= 0)	
+	{
+		fprintf(fp,"%-16s | %-6d | %-16s | %-11d\n",
+			   pfm_ip2str((*(tunnel_t*)data_ptr).key.ip_addr,tunnel_ip_l),
+			   (*(*tunnel_t)data_ptr).key.te_id,
+			   pfm_ip2str((*(tunnel_t*)data_ptr).remote_ip,tunnel_ip_r),
+			   (*(*tunnel_t).data_ptr).tunnel_type);
+   	}
 	return;
 }
 
