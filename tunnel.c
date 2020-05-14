@@ -12,7 +12,7 @@
 static tunnel_t tunnel_table_g[MAX_TUNNEL_COUNT];
 static uint32_t last_allocated_slot_g = 0;
 static rte_hash *hash_mapper;
-static pfm_bool_t hash_up;
+static pfm_bool_t hash_up = PFM_FALSE;
 /*
 Using pointer to a constant concept here to make sure changes are not made to the tunnel_entry returned from tunnel_get
 */
@@ -28,10 +28,10 @@ hash_init()
 
 	struct rte_hash_parameters hash_params = 
 	{
-		.name			=	PFM_ARP_HASH_NAME,
-		.entries 		= 	PFM_ARP_TABLE_ENTRIES,
+		.name			=	PFM_TUNNEL_HASH_NAME,
+		.entries 		= 	PFM_TUNNEL_TABLE_ENTRIES,
 		.reserved		= 	0,
-		.key_len		=	PFM_ARP_HASH_KEY_LEN,
+		.key_len		=	PFM_TUNNEL_HASH_KEY_LEN,
 		.hash_func		= 	rte_jhash,
 		.hash_func_init_val	=	0,
 		.socket_id		=	(int)rte_socket_id()
@@ -112,7 +112,7 @@ tunnel_add(tunnel_key_t *key)
 		return NULL;
 	}
 	// Circular queue style search for empty entry 
-	for (uint32_t i =  last_allocated_slot_g;
+	for (uint32_t i =  (last_allocated_slot_g+1)%PFM_TUNNEL_TABLE_ENTRIES;
 		i != last_allocated_slot_g;
 		i = (i+1)%PFM_TUNNEL_TABLE_ENTRIES)
 	{	
@@ -121,6 +121,7 @@ tunnel_add(tunnel_key_t *key)
 			tunnel_table_g[i].is_row_used 	= 1;
 			tunnel_table_g[i].key.ip_addr 	= key.ip_addr;
 			tunnel_table_g[i].key.te_id	= key.te_id;
+			last_allocated_slot_g = i;
 			return &(tunnel_table_g[i]);
 		}
 	}
@@ -213,6 +214,7 @@ pfm_retval_t
 tunnel_commit(tunnel_t* nt)
 {
 	int ret;	
+	tunnel_t *entry;
 	if (hash_up == PFM_FALSE)	
 	{
 		ret = hash_init();
@@ -230,9 +232,16 @@ tunnel_commit(tunnel_t* nt)
 			    "Invalid tunnel table entry pointer");
 	}
 	
+	if (ret = rte_hash_lookup_data(hash_mapper,
+				       (void *)&nt->key,
+				       (void *)entry))
+	{
+		memset(entry,0,sizeof(tunnel_t));
+	}
+	
 	// Insert the tunnel_t entry into the hash table 
 	ret = rte_hash_add_key_data(hash_mapper,
-				   (void *)nt->key,
+				   (void *)&nt->key,
 				   (void *)nt);
 	if (ret == 0)
 		return PFM_SUCCESS;

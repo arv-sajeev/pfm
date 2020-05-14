@@ -5,63 +5,283 @@
 
 static ue_ctx_t ue_ctx_table_g[MAX_UE_COUNT];
 static uint32_t last_allocated_slot_g = 0;
+static rte_hash* hash_mapper;
+static pfm_bool_t hash_up = PFM_FALSE;
+
+#define PFM_UE_CTX_TABLE_NAME "PFM_UE_CTX_TABLE"
+#define PFM_UE_CTX_TABLE_ENTRIES 32
+#define PFM_UE_CTX_HASH_KEY_LEN 1
+
+
+static int 
+hash_init()	
+{
+	if (hash_up != PFM_FALSE)	
+	{
+		pfm_log_msg(PFM_LOG_ERR,
+			    "ARP table already initialised");
+	}
+
+	struct rte_hash_parameters hash_params = 
+	{
+		.name			=	PFM_UE_CTX_TABLE_NAME,
+		.entries 		= 	PFM_UE_CTX_TABLE_ENTRIES,
+		.reserved		= 	0,
+		.key_len		=	PFM_UE_CTX_HASH_KEY_LEN,
+		.hash_func		= 	rte_jhash,
+		.hash_func_init_val	=	0,
+		.socket_id		=	(int)rte_socket_id()
+	};
+
+	hash_mapper	=	rte_hash_create(&hash_params);
+	if (hash_mapper == NULL)	
+	{
+		pfm_log_msg(PFM_LOG_ALERT,
+			    "Error during arp init");
+		return -1;
+	}
+	return 0;
+}
+
+
 
 ue_ctx_t *	ue_ctx_add(uint32_t ue_id)
 {
-	printf("ue_ctx_add(ueId=%d) invoked. "
-		"But not implemented\n",
-		ue_id);
-	printf("table=%p,last_slot=%d\n",
-		ue_ctx_table_g,last_allocated_slot_g);
-
-/*
-1. get new free slot idex by serch ue_ctx_table_g[] with
-   'is_used' set to false. start from last_allocated_slot_g
-   wrap around when reaching MAX_UE_COUNT
-2. set 'is_used' to true;
-3. return the new row addr
-*/
+	int ret;	
+	if (hash_up == PFM_FALSE)	
+	{
+		ret = hash_init();
+		if (ret != 0)	
+		{
+			pfm_log_msg(PFM_LOG_WARNING,
+				    "Failed to init ue_ctx_table ");
+			return PFM_FAILED;
+		}
+		pfm_trace_msg("Initialised ue_ctx_table");
+	}
+	// Circular queue style search for empty entry 
+	for (uint32_t i =  (last_allocated_slot_g+1)%PFM_UE_CTX_TABLE_ENTRIES;
+		i != last_allocated_slot_g;
+		i = (i+1)%PFM_UE_CTX_TABLE_ENTRIES)
+	{	
+		if (ue_ctx_table_g[i].is_row_used == 0)
+		{
+			ue_ctx_table_g[i].ue_id = ue_id;
+			last_allocated_slot_g = i;
+			return &(ue_ctx_table_g[i]);
+		}
+	}
+	pfm_log_msg(PFM_LOG_ERR,
+		    "ue_ctx_table is full");
 	return NULL;
+
 }
 
 pfm_retval_t	ue_ctx_remove(uint32_t ue_id)
 {
-	printf("ue_ctx_remove(ueId=%d) invoked. "
-		"But not implemented\n",
-		ue_id);
+	int ret;	
+	ue_ctx_t * entry;
+	if (hash_up == PFM_FALSE)	
+	{
+		ret = hash_init();
+		if (ret != 0)	
+		{
+			pfm_log_msg(PFM_LOG_WARNING,
+				    "Failed to init ue_ctx_table ");
+			return PFM_FAILED;
+		}
+		pfm_trace_msg("Initialised ue_ctx_table");
+	}
+	
+	// Get the tunnel entry
+	ret = rte_hash_lookup_data(hash_mapper,
+				   (void *)&ue_id,
+				   (void *)entry);
+	// Handle if not present 
+	if (ret < 0)	
+	{
+		if ( ret ==  -ENOENT)  
+		{ 
+			pfm_log_msg(PFM_LOG_ERR,
+				    "entry not in ue_ctx_table");			
+		}
+		if (ret == -EINVAL)
+		{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "invalid arguments for tunnel_remove");
+		}
+		return PFM_FAILED;	
+	}
+	//delete the key
+	ret = rte_hash_del_key(hash_mapper,
+			       (void *)&ue_id);
+	// Clear tunnel lists
+	for (int i = 0;i < entry->pdus_count ; i++)
+	{
+		pfm_retval_t r = tunnel_remove((entry->pdus_tunnel_list[i]).key);
+		if (r == PFM_FAILED)
+		{
+			pfm_log_msg(PFM_LOG_ERR,
+				"Error clearing pdus entries");
+			return PFM_FAILED;
+		}
+		
+	}
+	
+	for (int i = 0;i < entry->drb_count ; i++)
+	{
+		pfm_retval_t r = tunnel_remove((entry->drb_tunnel_list[i]).key);
+		if (r == PFM_FAILED)
+		{
+			pfm_log_msg(PFM_LOG_ERR,
+				"Error drb clearing entries");
+			return PFM_FAILED;
+		}
+	}
+	// CLear entry
+		
+		
+	memset(entry,0,sizeof(ue_ctx_t));
 
-/* 
-1. use hash table to get record in ue_ctx_table_g for the UE.
-2. delete enty from hash table so that it is not availanle for
-   any consumers
-3. invoke tunnel_remove() each tunnel in pdus_tunnel_list[]
-4. invoke tunnel_remove() each tunnel in drb_tunnel_list[]
-5. make the row of ue_ctx_table_g as free.
-*/
+	if (ret < 0)	
+	{
+		if ( ret ==  -ENOENT)  
+		{ 
+			pfm_log_msg(PFM_LOG_ERR,
+				    "entry not in ue_ctx_table");			
+		}
+		if (ret == -EINVAL)
+		{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "invalid arguments for tunnel_remove");
+		}
+		return PFM_FAILED;
+	}
 	return PFM_SUCCESS;
 }
 
 ue_ctx_t *	ue_ctx_modify(uint32_t ue_id)
 {
-	printf("ue_ctx_modify(ueId=%d) invoked. "
-		"But not implemented\n",
-		ue_id);
+	int ret;	
+	if (hash_up == PFM_FALSE)	
+	{
+		ret = hash_init();
+		if (ret != 0)	
+		{
+			pfm_log_msg(PFM_LOG_WARNING,
+				    "Failed to init ue_ctx_table ");
+			return NULL;
+		}
+		pfm_trace_msg("Initialised ue_ctx_table");
+	}
+	// Circular queue style search for empty entry 
+	for (uint32_t i =  (last_allocated_slot_g+1)%PFM_UE_CTX_TABLE_ENTRIES;
+		i != last_allocated_slot_g;
+		i = (i+1)%PFM_UE_CTX_TABLE_ENTRIES)
+	{	
+		if (ue_ctx_table_g[i].is_row_used == 0)
+		{
+			ue_ctx_table_g[i].ue_id = ue_id;
+			last_allocated_slot_g = i;
+			return &(ue_ctx_table_g[i]);
+		}
+	}
+	pfm_log_msg(PFM_LOG_ERR,
+		    "ue_ctx_table is full");
+	
 	return NULL;
 }
 
 pfm_retval_t	ue_ctx_commit(ue_ctx_t *new_ctx)
 {
-	printf("ue_ctx_commit(ctx=%p) invoked. "
-		"But not implemented\n",
-		new_ctx);
-	return PFM_SUCCESS;
+	int ret;	
+	if (hash_up == PFM_FALSE)	
+	{
+		ret = hash_init();
+		if (ret != 0)	
+		{
+			pfm_log_msg(PFM_LOG_WARNING,
+				    "Failed to init ue_ctx_table ");
+			return PFM_FAILED;
+		}
+		pfm_trace_msg("Initialised ue_ctx_table");
+	}
+	if (new_ctx == NULL)	{
+		pfm_log_msg(PFM_LOG_ERR,
+				"Invalid ue_ctx pointer");
+		return PFM_FAILED;
+	}
+	ue_ctx_t* entry;
+	if (ret = rte_hash_lookup_data((void *)&(new_ctx->ue_id),
+					(void*)entry))	
+	{
+		pfm_retval_t r = ue_ctx_remove(entry->ue_id);
+		if (r == PFM_FAILED)	
+		{
+			pfm_log_msg(PFM_LOG_ERR,
+					"Unable to clear previous entry in ue_ctx_commit, commit failed");
+			return PFM_FAILED;
+		}
+
+	}
+
+	ret = rte_hash_add_key_data(hash_mapper,
+				    (void *)&(new_ctx->ue_id),
+				    (void *)new_ctx);	
+	if (ret == 0)
+		return PFM_SUCCESS;
+	if (ret == -EINVAL)	
+	{
+		pfm_log_msg(PFM_LOG_ERR,
+				"Invalid parameter to ue_ctx_commit");
+		return PFM_FAILED;
+	}	
+
+	if (ret == -ENOSPC)
+	{
+		pfm_log_msg(PFM_LOG_ERR,
+				"ue_ctx_table is full");
+		return PFM_FAILED;
+	}	
+	return PFM_FAILED;
 }
 
-ue_ctx_t *	ue_ctx_get(uint32_t ue_id)
+const ue_ctx_t *ue_ctx_get(uint32_t ue_id)
 {
-	printf("ue_ctx_get(ueId=%d) invoked. "
-		"But not implemented\n",
-		ue_id);
+	int ret;	
+	ue_ctx_t* entry;
+	if (hash_up == PFM_FALSE)	
+	{
+		ret = hash_init();
+		if (ret != 0)	
+		{
+			pfm_log_msg(PFM_LOG_WARNING,
+				    "Failed to init ue_ctx_table ");
+			return NULL;
+		}
+	}
+	ret = rte_hash_lookup_data(hash_mapper,
+				   (void *)&ue_id,
+				   (void *)entry);
+	if (ret == 0)	
+	{
+		return entry;
+	}
+	
+	if (ret < 0)	
+	{
+		if (ret == -ENOENT)	
+		{
+			pfm_trace_msg("No entry found in ue_ctx_table");
+		}
+		if (ret == -EINVAL)	
+		{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "Invalid parameters in ue_ctx_table");
+		}
+
+
+	}	
 	return NULL;
 }
 
