@@ -286,10 +286,41 @@ const ue_ctx_t *ue_ctx_get(uint32_t ue_id)
 }
 
 void		ue_ctx_print_list(FILE *fp)
-{
-	printf("ue_ctx_print_list(fp=%p) invoked. "
-		"But not implemented\n",
-		fp);
+{	
+	const uint32_t *key_ptr;
+	ue_ctx_t * data_ptr;
+	uint32_t ptr = 0,hash_count;
+	int pos,ret;
+	if (hash_up == PFM_FALSE)	
+	{
+		ret = hash_init();
+		if (ret != 0)	
+		{
+			pfm_log_msg(PFM_LOG_WARNING,
+				    "Failed to init ue_ctx_table ");
+			return NULL;
+		}
+	}
+	if (fp == NULL)
+	{
+		pfm_log_msg(PFM_LOG_ERR,
+			    "Invalid file pointer")L;
+	}
+	hash_count = rte_hash_count(hash_mapper);
+	if (hash_count == 0)	{
+		fprintf(fp,"ue_ctx_table table is empty\n");
+		return;
+	}
+	
+	fprintf(fp,"\n %-10s | %-10s | %-10s | %-10s\n",
+		"CUUP-UEid","CUCP-UEid","DRB count","PDUS count");
+	while (rte_hash_iterate(hash_mapper,(void *)&key_ptr,(void *)&data_ptr,&ptr) >=0)	{
+		fprintf(fp," %-10d | %-10d | %-10d | %-10d\n",
+			data_ptr->ue_id,
+			data_ptr->cp_ue_id,
+			data_ptr->drb_count,
+			data_ptr->pdus_count);
+	}
 	return;
 }
 

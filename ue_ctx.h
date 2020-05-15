@@ -14,13 +14,13 @@ typedef struct
 	tunnel_t *	drb_tunnel_list[MAX_DRB_PER_UE];
 } ue_ctx_t;
 
-ue_ctx_t *	ue_ctx_add(uint32_t ue_id);
-pfm_retval_t	ue_ctx_remove(uint32_t ue_id);
-ue_ctx_t *	ue_ctx_modify(uint32_t ue_id);
-pfm_retval_t	ue_ctx_commit(ue_ctx_t *new_ctx);
-ue_ctx_t *	ue_ctx_get(uint32_t ue_id);
-void		ue_ctx_print_list(FILE *fp);
-void		ue_ctx_print_show(FILE *fp, uint32_t ue_id);
+ue_ctx_t *		ue_ctx_add(uint32_t ue_id);
+pfm_retval_t		ue_ctx_remove(uint32_t ue_id);
+ue_ctx_t *		ue_ctx_modify(uint32_t ue_id);
+pfm_retval_t		ue_ctx_commit(ue_ctx_t *new_ctx);
+const ue_ctx_t *	ue_ctx_get(uint32_t ue_id);
+void			ue_ctx_print_list(FILE *fp);
+void			ue_ctx_print_show(FILE *fp, uint32_t ue_id);
 
 
 #endif
