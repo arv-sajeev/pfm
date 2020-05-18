@@ -1,6 +1,8 @@
 #include "pfm.h"
 #include "cuup.h"
 #include "tunnel.h"
+#include "pfm_comm.h"
+#include "pfm_utils.h"
 #include <rte_hash.h>
 #include <rte_jhash.h>
 #include <string.h>
@@ -11,14 +13,14 @@
 
 static tunnel_t tunnel_table_g[MAX_TUNNEL_COUNT];
 static uint32_t last_allocated_slot_g = 0;
-static rte_hash *hash_mapper;
+static struct rte_hash *hash_mapper;
 static pfm_bool_t hash_up = PFM_FALSE;
 /*
 Using pointer to a constant concept here to make sure changes are not made to the tunnel_entry returned from tunnel_get
 */
 
 static int 
-hash_init()	
+hash_init(void)	
 {
 	if (hash_up != PFM_FALSE)	
 	{
@@ -119,8 +121,8 @@ tunnel_add(tunnel_key_t *key)
 		if (tunnel_table_g[i].is_row_used == 0)
 		{
 			tunnel_table_g[i].is_row_used 	= 1;
-			tunnel_table_g[i].key.ip_addr 	= key.ip_addr;
-			tunnel_table_g[i].key.te_id	= key.te_id;
+			tunnel_table_g[i].key.ip_addr 	= key->ip_addr;
+			tunnel_table_g[i].key.te_id	= key->te_id;
 			last_allocated_slot_g = i;
 			return &(tunnel_table_g[i]);
 		}
@@ -142,7 +144,7 @@ tunnel_remove(tunnel_key_t *key)
 		{
 			pfm_log_msg(PFM_LOG_WARNING,
 				    "Failed to init tunnel_table ");
-			return NULL;
+			return PFM_FAILED;
 		}
 		pfm_trace_msg("Initialised tunnel_table");
 	}
@@ -222,7 +224,7 @@ tunnel_commit(tunnel_t* nt)
 		{
 			pfm_log_msg(PFM_LOG_WARNING,
 				    "Failed to init tunnel_table ");
-			return NULL;
+			return PFM_FAILED;
 		}
 		pfm_trace_msg("Initialised tunnel_table");
 	}
@@ -232,7 +234,7 @@ tunnel_commit(tunnel_t* nt)
 			    "Invalid tunnel table entry pointer");
 	}
 	
-	if (ret = rte_hash_lookup_data(hash_mapper,
+	if (ret == rte_hash_lookup_data(hash_mapper,
 				       (void *)&nt->key,
 				       (void *)entry))
 	{
@@ -245,13 +247,13 @@ tunnel_commit(tunnel_t* nt)
 				   (void *)nt);
 	if (ret == 0)
 		return PFM_SUCCESS;
-	if (ret = -EINVAL)
+	if (ret == -EINVAL)
 	{
 		pfm_log_msg(PFM_LOG_ERR,
 		            "incorrect parameters tunnel_commit");
 		return PFM_FAILED;
 	}
-	if (ret = -ENOSPC)
+	if (ret == -ENOSPC)
 	{
 		pfm_log_msg(PFM_LOG_ERR,
 			    "tunnel_table is full");
@@ -273,7 +275,7 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 		{
 			pfm_log_msg(PFM_LOG_WARNING,
 				    "Failed to init tunnel_table ");
-			return NULL;
+			return ;
 		}
 		pfm_trace_msg("Initialised tunnel_table");
 	}
@@ -281,7 +283,7 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 	{
 		pfm_log_msg(PFM_LOG_ERR,
 			    "Invalid log error");
-		return NULL;
+		return ;
 	}
 	
 	ret = rte_hash_lookup_data(hash_mapper,
@@ -299,9 +301,9 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 			pfm_log_msg(PFM_LOG_ERR,
 				    "invalid arguments for tunnel_print_show");
 		}
-		return NULL;
+		return ;
 	}
-	switch(entry.tunnel_type)	
+	switch(entry->tunnel_type)	
 	{
 		case TUNNEL_TYPE_PDUS:
 
@@ -314,21 +316,21 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 					   "Flow count	     :   %-16d\n"
 					   "\n\nFlows\n"
 					   "%-7s %-6s %-6s\n",
-					   pfm_ip2str(entry.key.ip_addr,tunnel_ip_l),
-					   entry.key.te_id,
-					   pfm_ip2str(entry.remote_ip,tunnel_ip_r),
+					   pfm_ip2str(entry->key.ip_addr,tunnel_ip_l),
+					   entry->key.te_id,
+					   pfm_ip2str(entry->remote_ip,tunnel_ip_r),
 					   "PDU",
-					   entry.pdus_info.pdus_id,
-					   entry.pdus_info.flow_count,
+					   entry->pdus_info.pdus_id,
+					   entry->pdus_info.flow_count,
 					   "Flow id",
 					   "Status",
 				           "DRB id");
-				for (int i = 0;i < entry.pdus_info.flow_count;i++)
+				for (int i = 0;i < entry->pdus_info.flow_count;i++)
 				{
 					fprintf(fp,"%-7d %-6d %-6d",
-					    entry.pdus_info.flow_list[i].flow_id,
-					    entry.pdus_info.flow_list[i].r_qos_status,
-					    entry.pdus_info.flow_list[i].mapped_drb_idx);
+					    entry->pdus_info.flow_list[i].flow_id,
+					    entry->pdus_info.flow_list[i].r_qos_status,
+					    entry->pdus_info.flow_list[i].mapped_drb_idx);
 				}
 				break;
 
@@ -347,16 +349,16 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 					   "is_ul_sdap_hdr_enabled	:   %-16d\n"
 					   "mapped_flow_idx		:   %-16d\n"
 					   "mapped_pdus_idx		:   %-16d\n",
-					   pfm_ip2str(entry.key.ip_addr,tunnel_ip_l),
-					   entry.key.te_id,
-					   pfm_ip2str(entry.remote_ip,tunnel_ip_r),
+					   pfm_ip2str(entry->key.ip_addr,tunnel_ip_l),
+					   entry->key.te_id,
+					   pfm_ip2str(entry->remote_ip,tunnel_ip_r),
 					   "DRB",
-					   entry.drb_info.drb_id,
-					   entry.is_default,
-					   entry.is_dl_sdap_hdr_enabled,
-					   entry.is_ul_sdap_hdr_enabled,
-					   entry.mapped_flow_idx,
-					   entry.mapped_pdus_idx);
+					   entry->drb_info.drb_id,
+					   entry->drb_info.is_default,
+					   entry->drb_info.is_dl_sdap_hdr_enabled,
+					   entry->drb_info.is_ul_sdap_hdr_enabled,
+					   entry->drb_info.mapped_flow_idx,
+					   entry->drb_info.mapped_pdus_idx);
 				break;	
 	}
 		
@@ -380,14 +382,14 @@ tunnel_print_list(FILE *fp, tunnel_type_t type)
 		{
 			pfm_log_msg(PFM_LOG_WARNING,
 				    "Failed to init tunnel_table ");
-			return NULL;
+			return ;
 		}
 		pfm_trace_msg("Initialised tunnel_table");
 	}
 	hash_count = rte_hash_count(hash_mapper);
 	if (hash_count == 0)	
 	{
-		fprintf("Tunnel table is empty\n");
+		fprintf(fp,"Tunnel table is empty\n");
 		return;
 	}
 	
@@ -400,11 +402,12 @@ tunnel_print_list(FILE *fp, tunnel_type_t type)
 	
 	while(rte_hash_iterate(hash_mapper,&key_ptr,&data_ptr,&pos) >= 0)	
 	{
+		tunnel_t *entry = (tunnel_t *)data_ptr;
 		fprintf(fp,"%-16s | %-6d | %-16s | %-11d\n",
-			   pfm_ip2str((*(tunnel_t*)data_ptr).key.ip_addr,tunnel_ip_l),
-			   (*(*tunnel_t)data_ptr).key.te_id,
-			   pfm_ip2str((*(tunnel_t*)data_ptr).remote_ip,tunnel_ip_r),
-			   (*(*tunnel_t).data_ptr).tunnel_type);
+			pfm_ip2str(entry->key.ip_addr,tunnel_ip_l),
+			entry->key.te_id,
+			pfm_ip2str(entry->remote_ip,tunnel_ip_r),
+			entry->tunnel_type);
    	}
 	return;
 }

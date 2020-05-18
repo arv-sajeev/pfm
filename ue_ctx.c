@@ -1,20 +1,24 @@
+#include <rte_hash.h>
+#include <rte_jhash.h>
 #include "pfm.h"
 #include "cuup.h"
 #include "tunnel.h"
 #include "ue_ctx.h"
-
-static ue_ctx_t ue_ctx_table_g[MAX_UE_COUNT];
-static uint32_t last_allocated_slot_g = 0;
-static rte_hash* hash_mapper;
-static pfm_bool_t hash_up = PFM_FALSE;
 
 #define PFM_UE_CTX_TABLE_NAME "PFM_UE_CTX_TABLE"
 #define PFM_UE_CTX_TABLE_ENTRIES 32
 #define PFM_UE_CTX_HASH_KEY_LEN 1
 
 
+static ue_ctx_t ue_ctx_table_g[MAX_UE_COUNT];
+static uint32_t last_allocated_slot_g = 0;
+static struct rte_hash* hash_mapper;
+static pfm_bool_t hash_up = PFM_FALSE;
+
+
+
 static int 
-hash_init()	
+hash_init(void)	
 {
 	if (hash_up != PFM_FALSE)	
 	{
@@ -45,7 +49,8 @@ hash_init()
 
 
 
-ue_ctx_t *	ue_ctx_add(uint32_t ue_id)
+ue_ctx_t *
+ue_ctx_add(uint32_t ue_id)
 {
 	int ret;	
 	if (hash_up == PFM_FALSE)	
@@ -55,7 +60,7 @@ ue_ctx_t *	ue_ctx_add(uint32_t ue_id)
 		{
 			pfm_log_msg(PFM_LOG_WARNING,
 				    "Failed to init ue_ctx_table ");
-			return PFM_FAILED;
+			return NULL;
 		}
 		pfm_trace_msg("Initialised ue_ctx_table");
 	}
@@ -118,19 +123,18 @@ pfm_retval_t	ue_ctx_remove(uint32_t ue_id)
 	// Clear tunnel lists
 	for (int i = 0;i < entry->pdus_count ; i++)
 	{
-		pfm_retval_t r = tunnel_remove((entry->pdus_tunnel_list[i]).key);
+		pfm_retval_t r = tunnel_remove(&((entry->pdus_tunnel_list[i])->key));
 		if (r == PFM_FAILED)
 		{
 			pfm_log_msg(PFM_LOG_ERR,
 				"Error clearing pdus entries");
 			return PFM_FAILED;
 		}
-		
 	}
 	
 	for (int i = 0;i < entry->drb_count ; i++)
 	{
-		pfm_retval_t r = tunnel_remove((entry->drb_tunnel_list[i]).key);
+		pfm_retval_t r = tunnel_remove(&((entry->drb_tunnel_list[i])->key));
 		if (r == PFM_FAILED)
 		{
 			pfm_log_msg(PFM_LOG_ERR,
@@ -138,7 +142,7 @@ pfm_retval_t	ue_ctx_remove(uint32_t ue_id)
 			return PFM_FAILED;
 		}
 	}
-	// CLear entry
+	// Clear entry
 		
 		
 	memset(entry,0,sizeof(ue_ctx_t));
@@ -212,8 +216,10 @@ pfm_retval_t	ue_ctx_commit(ue_ctx_t *new_ctx)
 		return PFM_FAILED;
 	}
 	ue_ctx_t* entry;
-	if (ret = rte_hash_lookup_data((void *)&(new_ctx->ue_id),
-					(void*)entry))	
+	ret = rte_hash_lookup_data(hash_mapper,
+					(void *)&(new_ctx->ue_id),
+					(void*)entry);	
+	if (ret >= 0)
 	{
 		pfm_retval_t r = ue_ctx_remove(entry->ue_id);
 		if (r == PFM_FAILED)	
@@ -298,13 +304,13 @@ void		ue_ctx_print_list(FILE *fp)
 		{
 			pfm_log_msg(PFM_LOG_WARNING,
 				    "Failed to init ue_ctx_table ");
-			return NULL;
+			return;
 		}
 	}
 	if (fp == NULL)
 	{
 		pfm_log_msg(PFM_LOG_ERR,
-			    "Invalid file pointer")L;
+			    "Invalid file pointer");
 	}
 	hash_count = rte_hash_count(hash_mapper);
 	if (hash_count == 0)	{

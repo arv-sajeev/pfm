@@ -53,11 +53,11 @@ typedef struct
 } tunnel_t;
 
 
-tunnel_t *	tunnel_get(tunnel_key_t *key);
-tunnel_t *	tunnel_add(tunnel_key_t *key);
-pfm_retval_t	tunnel_remove(tunnel_key_t *key);
-tunnel_t *	tunnel_modify(tunnel_key_t *key);
-pfm_retval_t	tunnel_commit(tunnel_t* nt);
-void 		tunnel_print_show(FILE *fp, tunnel_key_t *key);
-void 		tunnel_print_list(FILE *fp, tunnel_type_t ttype);
+const tunnel_t *	tunnel_get(tunnel_key_t *key);
+tunnel_t *		tunnel_add(tunnel_key_t *key);
+pfm_retval_t		tunnel_remove(tunnel_key_t *key);
+tunnel_t *		tunnel_modify(tunnel_key_t *key);
+pfm_retval_t		tunnel_commit(tunnel_t* nt);
+void 			tunnel_print_show(FILE *fp, tunnel_key_t *key);
+void 			tunnel_print_list(FILE *fp, tunnel_type_t ttype);
 #endif
