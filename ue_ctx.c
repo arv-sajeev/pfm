@@ -72,6 +72,7 @@ ue_ctx_add(uint32_t ue_id)
 		if (ue_ctx_table_g[i].is_row_used == 0)
 		{
 			ue_ctx_table_g[i].ue_id = ue_id;
+			ue_ctx_table_g[i].is_row_used = 1;
 			last_allocated_slot_g = i;
 			return &(ue_ctx_table_g[i]);
 		}

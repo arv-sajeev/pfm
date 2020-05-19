@@ -7,8 +7,8 @@
 // PDU Session Resource to Setup List 9.3.3.2
 // DRB to Setup Item
 
-// BEARER CONTEXT MODIFICAION REQUEST sec 9.2.2.4 
-// PDU Session Resource to Setup Modificaion List 9.3.3.10
+// BEARER CONTEXT MODIFICATION REQUEST sec 9.2.2.4 
+// PDU Session Resource to Setup MODIFICATION List 9.3.3.10
 // DRB to Setup Item
 typedef struct
 {
@@ -28,7 +28,7 @@ typedef struct
 typedef struct
 {	
 	uint8_t		pdus_id;	// PDU Session ID 9.3.1.21
-	uint8_t		drb_count;	// number of RDB the PDU Session
+	uint8_t		drb_count;	// number of DRB the PDU Session
 	
 	/* NG UL UP Trasport Layer Info 9.3.2.1
 	   IP Address & TEID of UPF to where UL NGu packet to be send
@@ -44,11 +44,11 @@ typedef struct
 // PDU Session Resource Setup List sec 9.3.3.5 
 // DRB Setup List 
 
-// BEARER CONTEXT MODIFICAION RESPONSE. sec 9.2.2.5 
-// PDU Session Resource Setup Modificaion List sec 9.3.3.17 
+// BEARER CONTEXT MODIFICATION RESPONSE. sec 9.2.2.5 
+// PDU Session Resource Setup MODIFICATION List sec 9.3.3.17 
 // DRB Setup List 
 
-// BEARER CONTEXT MODIFICAION RESPONSE. sec 9.2.2.5 
+// BEARER CONTEXT MODIFICATION RESPONSE. sec 9.2.2.5 
 // PDU Session Resorce Modify List 9.3.3.19
 // DRB Modified List 
 typedef struct
@@ -67,11 +67,11 @@ typedef struct
 // PDU Session Resource Setup List sec 9.3.3.5 
 // DRB Failed List 
 
-// BEARER CONTEXT MODIFICAION RESPONSE. sec 9.2.2.5 
-// PDU Session Resource Setup Modificaion List sec 9.3.3.17 
+// BEARER CONTEXT MODIFICATION RESPONSE. sec 9.2.2.5 
+// PDU Session Resource Setup MODIFICATION List sec 9.3.3.17 
 // DRB Failed List 
 
-// BEARER CONTEXT MODIFICAION RESPONSE. sec 9.2.2.5 
+// BEARER CONTEXT MODIFICATION RESPONSE. sec 9.2.2.5 
 // PDU Session Resorce Modify List 9.3.3.19
 // DRB Failed to Modify List 
 typedef struct
@@ -83,8 +83,8 @@ typedef struct
 // BEARER CONTEXT SETUP RESPONSE. sec 9.2.2.2 of 3GPP TS 38.463
 // PDU Session Resource Setup List sec 9.3.3.5 
 
-// BEARER CONTEXT MODIFICAION RESPONSE. sec 9.2.2.5 
-// PDU Session Resource Setup Modificaion List sec 9.3.3.17 
+// BEARER CONTEXT MODIFICATION RESPONSE. sec 9.2.2.5 
+// PDU Session Resource Setup MODIFICATION List sec 9.3.3.17 
 typedef struct
 {	
 	uint8_t		pdus_id;		// PDU Session ID 9.3.1.21
@@ -106,7 +106,7 @@ typedef struct
 // BEARER CONTEXT SETUP RESPONSE. sec 9.2.2.2 of 3GPP TS 38.463
 // PDU Session Resource Failed List sec 9.3.3.6 
 
-// BEARER CONTEXT MODIFICAION RESPONSE. sec 9.2.2.5 
+// BEARER CONTEXT MODIFICATION RESPONSE. sec 9.2.2.5 
 // PDU Session Resource Failed List 9.3.3.18
 typedef struct
 {
