@@ -13,7 +13,6 @@
 typedef struct
 {
 	uint8_t		drb_id;		// DRB ID 9.3.1.16
-	
 	// DL UP paramters	9.3.1.13
 	// UP Transport Layer Information	9.3.2.1
 	pfm_ip_addr_t   drb_dl_ip_addr; // Transport Layer Addr 9.3.2.4
@@ -49,13 +48,13 @@ typedef struct
 // DRB Setup List 
 
 // BEARER CONTEXT MODIFICATION RESPONSE. sec 9.2.2.5 
-// PDU Session Resorce Modify List 9.3.3.19
+// PDU Session Resource Modify List 9.3.3.19
 // DRB Modified List 
 typedef struct
 {
 	uint8_t		drb_id;		// 9.3.1.16
 
-	// UL UP Paramter -> 9.3.1.13
+	// UL UP Parameter -> 9.3.1.13
 	// UP Transport Layer Info 9.3.2.1
 	// IP Addr and TEDI of CUUP to which DU can send UL pkts 
 	pfm_ip_addr_t	drb_ul_ip_addr;	// Transport Layer Addr 9.3.2.4

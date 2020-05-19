@@ -43,6 +43,7 @@ typedef struct
 {
 	tunnel_key_t	key;
 	pfm_ip_addr_t	remote_ip;
+	uint32_t        remote_te_id
 	tunnel_type_t	tunnel_type:2;
 	uint8_t		is_row_used:1;
 	union
