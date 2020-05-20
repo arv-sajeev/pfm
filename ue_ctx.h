@@ -1,11 +1,13 @@
 #ifndef __UE_CTX_H__
 #define __UE_CTX_H__ 1
 
+#include "tunnel.h"
+
 
 typedef struct
 {
-	uint32_t	ue_id;    // 32 bit gNB-CU-UP UE E1AP ID
-	uint32_t	cp_ue_id; // 32 bit gNB-CU-CP UE E1AP ID
+	uint32_t	cuup_ue_id;    // 32 bit gNB-CU-UP UE E1AP ID
+	uint32_t	cucp_ue_id; // 32 bit gNB-CU-CP UE E1AP ID
 	uint8_t		pdus_count:8;       // PDU Session count
 	uint8_t		drb_count:5;
 	uint8_t		new_ul_flow_detected_count:5;

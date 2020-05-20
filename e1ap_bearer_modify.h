@@ -32,7 +32,7 @@ typedef struct
 	uint8_t	drb_setup_count;
 	uint8_t	drb_modify_count;
 	uint8_t	drb_remove_count;
-	drb_setup_req_info_t       drb_setup_list[MAX_DRB_PER_PDUS];
+	drb_setup_req_info_t        drb_setup_list[MAX_DRB_PER_PDUS];
 	drb_modify_req_info_t       drb_modify_list[MAX_DRB_PER_PDUS];
 	drb_remove_req_info_t       drb_remove_list[MAX_DRB_PER_PDUS];
 } pdus_modify_req_info_t;

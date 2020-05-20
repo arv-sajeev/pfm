@@ -4,6 +4,7 @@
 #include "cuup.h"
 #include "tunnel.h"
 #include "ue_ctx.h"
+#include <string.h>
 
 #define PFM_UE_CTX_TABLE_NAME "PFM_UE_CTX_TABLE"
 #define PFM_UE_CTX_TABLE_ENTRIES 32
@@ -71,7 +72,7 @@ ue_ctx_add(uint32_t ue_id)
 	{	
 		if (ue_ctx_table_g[i].is_row_used == 0)
 		{
-			ue_ctx_table_g[i].ue_id = ue_id;
+			ue_ctx_table_g[i].cuup_ue_id = ue_id;
 			ue_ctx_table_g[i].is_row_used = 1;
 			last_allocated_slot_g = i;
 			return &(ue_ctx_table_g[i]);
@@ -168,6 +169,7 @@ pfm_retval_t	ue_ctx_remove(uint32_t ue_id)
 ue_ctx_t *	ue_ctx_modify(uint32_t ue_id)
 {
 	int ret;	
+	ue_ctx_t* entry;
 	if (hash_up == PFM_FALSE)	
 	{
 		ret = hash_init();
@@ -179,6 +181,20 @@ ue_ctx_t *	ue_ctx_modify(uint32_t ue_id)
 		}
 		pfm_trace_msg("Initialised ue_ctx_table");
 	}
+	
+	// Check if an instance with this ue_id already exists
+	ret = rte_hash_lookup_data(hash_mapper,
+				   (void *)&ue_id,
+				   (void *)&entry);
+	// If it doesn't exist it is an invalid request
+	if (ret != 0)	
+	{
+		pfm_log_msg(PFM_LOG_ERR,
+			    "Attempting to modify an entry that doesn't exist");
+		return NULL;
+
+	}
+	
 	// Circular queue style search for empty entry 
 	for (uint32_t i =  (last_allocated_slot_g+1)%PFM_UE_CTX_TABLE_ENTRIES;
 		i != last_allocated_slot_g;
@@ -186,7 +202,7 @@ ue_ctx_t *	ue_ctx_modify(uint32_t ue_id)
 	{	
 		if (ue_ctx_table_g[i].is_row_used == 0)
 		{
-			ue_ctx_table_g[i].ue_id = ue_id;
+			ue_ctx_table_g[i].cuup_ue_id = ue_id;
 			last_allocated_slot_g = i;
 			return &(ue_ctx_table_g[i]);
 		}
@@ -218,22 +234,16 @@ pfm_retval_t	ue_ctx_commit(ue_ctx_t *new_ctx)
 	}
 	ue_ctx_t* entry;
 	ret = rte_hash_lookup_data(hash_mapper,
-					(void *)&(new_ctx->ue_id),
+					(void *)&(new_ctx->cuup_ue_id),
 					(void*)entry);	
 	if (ret >= 0)
 	{
-		pfm_retval_t r = ue_ctx_remove(entry->ue_id);
-		if (r == PFM_FAILED)	
-		{
-			pfm_log_msg(PFM_LOG_ERR,
-					"Unable to clear previous entry in ue_ctx_commit, commit failed");
-			return PFM_FAILED;
-		}
+		memset(entry,0,sizeof(ue_ctx_t));
 
 	}
 
 	ret = rte_hash_add_key_data(hash_mapper,
-				    (void *)&(new_ctx->ue_id),
+				    (void *)&(new_ctx->cuup_ue_id),
 				    (void *)new_ctx);	
 	if (ret == 0)
 		return PFM_SUCCESS;
@@ -323,8 +333,8 @@ void		ue_ctx_print_list(FILE *fp)
 		"CUUP-UEid","CUCP-UEid","DRB count","PDUS count");
 	while (rte_hash_iterate(hash_mapper,(void *)&key_ptr,(void *)&data_ptr,&ptr) >=0)	{
 		fprintf(fp," %-10d | %-10d | %-10d | %-10d\n",
-			data_ptr->ue_id,
-			data_ptr->cp_ue_id,
+			data_ptr->cuup_ue_id,
+			data_ptr->cucp_ue_id,
 			data_ptr->drb_count,
 			data_ptr->pdus_count);
 	}

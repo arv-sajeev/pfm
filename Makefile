@@ -21,6 +21,7 @@ SRCS-y :=	cuup.c \
 		pfm_cli.c	\
 		ue_ctx.c	\
 		tunnel.c	\
+		e1ap_bearer_setup.c \
 		pfm_utils.c
 
 # Build using pkg-config variables if possible

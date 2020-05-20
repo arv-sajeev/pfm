@@ -124,6 +124,7 @@ tunnel_add(tunnel_key_t *key)
 			tunnel_table_g[i].key.ip_addr 	= key->ip_addr;
 			tunnel_table_g[i].key.te_id	= key->te_id;
 			last_allocated_slot_g = i;
+			pfm_trace_msg("New tunnel entry for tunnel_add");
 			return &(tunnel_table_g[i]);
 		}
 	}
@@ -195,6 +196,7 @@ tunnel_t *
 tunnel_modify(tunnel_key_t *key)
 {
 	int ret;	
+	tunnel_t* entry;
 	if (hash_up == PFM_FALSE)	
 	{
 		ret = hash_init();
@@ -206,9 +208,31 @@ tunnel_modify(tunnel_key_t *key)
 		}
 		pfm_trace_msg("Initialised tunnel_table");
 	}
-	printf("tunnel_modify(%p) invoked. "
-		"But not implemented\n",
-		key);
+
+	ret = rte_hash_lookup_data(hash_mapper,
+				   (void *)key,
+				   (void *)entry);
+	if (ret == 0)	
+	{
+		pfm_log_msg(PFM_LOG_ERR,
+			    "Attempting to modify entry that doesn't exist");
+		return NULL;
+	}
+	
+	for (uint32_t i = (last_allocated_slot_g+1)%PFM_TUNNEL_TABLE_ENTRIES;
+		i != last_allocated_slot_g;
+		i = (i+1)%PFM_TUNNEL_TABLE_ENTRIES)
+	{
+		if (tunnel_table_g[i].is_row_used == 0)
+		{
+			tunnel_table_g[i].is_row_used	=	1;
+			tunnel_table_g[i].key.ip_addr	=	key->ip_addr;
+			tunnel_table_g[i].key.te_id	=	key->te_id;
+			last_allocated_slot_g		=	i;
+			pfm_trace_msg("New tunnel entry for tunnel_modify");
+			return &(tunnel_table_g[i]);
+		}
+	}
 	return NULL;
 }
 
@@ -234,9 +258,10 @@ tunnel_commit(tunnel_t* nt)
 			    "Invalid tunnel table entry pointer");
 	}
 	
-	if (ret == rte_hash_lookup_data(hash_mapper,
-				       (void *)&nt->key,
-				       (void *)entry))
+	ret == rte_hash_lookup_data(hash_mapper,
+				    (void *)&nt->key,
+				    (void *)entry);
+	if (ret >= 0)
 	{
 		memset(entry,0,sizeof(tunnel_t));
 	}
