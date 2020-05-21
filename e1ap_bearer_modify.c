@@ -14,9 +14,8 @@
 	- make changes to an existing pdus_session 
 */
 static pfm_retval_t
-bearer_modify_failure(
-		e1ap_bearer_ctx_modify_req_t *req,
-		e1ap_bearer_ctx_modify_rsp_t *rsp)
+bearer_modify_failure(e1ap_bearer_ctx_modify_req_t *req,
+		      e1ap_bearer_ctx_modify_rsp_t *rsp)
 {
 	rsp->cucp_ue_id = req->cucp_ue_id;
 	rsp->cuup_ue_id = req->cuup_ue_id;
@@ -49,13 +48,106 @@ bearer_modify_failure(
 }
 
 
-
-pfm_retval_t e1ap_bearer_ctx_modify(
-		e1ap_bearer_ctx_modify_req_t *req,
-		e1ap_bearer_ctx_modify_rsp_t *rsp)
+static tunnel_t*
+bearer_pdus_setup(tunnel_key_t *tunnel_key,pdus_setup_req_info_t *req)
 {
-	int ret;
+	pfm_retval_t ret;
+	tunnel_t* tunnel_entry = tunnel_add(tunnel_key);
+	if (tunnel_entry == NULL)
+	{
+		pfm_log_msg(PFM_LOG_ERR,
+			"Error allocating tunnel entry");
+		return NULL;
+	}
+	tunnel_entry->remote_ip 	= req->pdus_ul_ip_addr;
+	tunnel_entry->remote_te_id 	= req->pdus_ul_teid;
+	tunnel_entry->tunnel_type	= TUNNEL_TYPE_PDUS;
+	tunnel_entry->pdus_info.pdus_id = req->pdus_id;
+	ret = tunnel_commit(tunnel_entry);
+	
+	if (ret == PFM_FAILED)
+	{
+		pfm_log_msg(PFM_LOG_ERR,
+				"Error committing tunnel entry");
+		return NULL;
+	}
+	return tunnel_entry;
+}
+
+static void
+bearer_pdus_setup_succes(tunnel_t *tunnel_entry,
+		           pdus_setup_succ_rsp_info_t* pdus_succ_rsp)
+{
+	pdus_succ_rsp->pdus_id 			 = tunnel_entry->pdus_info.pdus_id;
+	pdus_succ_rsp->drb_setup_succ_count	 = 0;
+	pdus_succ_rsp->drb_setup_fail_count	 = 0;
+	pdus_succ_rsp->pdus_dl_ip_addr		 = tunnel_entry->key.ip_addr;
+	pdus_succ_rsp->pdus_dl_teid		 = tunnel_entry->key.te_id;
+	return;
+}
+
+static void
+bearer_pdus_setup_failed(pdus_setup_req_info_t *req,
+			 pdus_setup_fail_rsp_info_t* pdus_fail_rsp)
+{
+	pdus_fail_rsp->pdus_id = req->pdus_id;
+	// TD find a way to assign cause
+	pdus_fail_rsp->cause   = 1;
+	return;
+}
+
+static tunnel_t*
+bearer_drb_setup(tunnel_key_t *tunnel_key,drb_setup_req_info_t *req)
+{
+	pfm_retval_t ret;
+	tunnel_t* tunnel_entry;
+	tunnel_entry = tunnel_add(tunnel_key);
+	if (tunnel_entry == NULL){
+		pfm_log_msg(PFM_LOG_ERR,
+			    "Error allocating tunnel entry");
+		return NULL;
+	}
+
+	tunnel_entry->remote_ip_addr	 = req->drb_dl_ip_addr;
+	tunnel_entry->remote_te_id   	 = req->drb_dl_teid;
+	tunnel_entry->drb_info.drb_id    = req->drb_id;
+	
+	ret = tunnel_commit(tunnel_entry);
+	if (ret == PFM_FAILED)
+	{
+		pfm_log_msg(PFM_LOG_ERR,
+			    "Error committing tunnel entry");
+		return NULL
+	}
+	return tunnel_entry;
+}
+
+static void
+bearer_drb_setup_success(tunnel_t* tunnel_entry,drb_setup_succ_rsp_info_t *drb_succ_rsp)
+{
+	drb_succ_rsp->drb_id		 = tunnel_entry->drb_info.drb_id;
+	drb_succ_rsp->drb_ul_ip_addr 	 = tunnel_entry->key.ip_addr;
+	drb_succ_rsp->drb_ul_teid	 = tunnel_entry->key.te_id;
+	return;
+}
+
+static void 
+bearer_drb_setup_failed(drb_setup_req_info_t *req,
+		        drb_setup_fail_rsp_info_t *drb_fail_rsp)
+{
+	drb_fail_rsp->drb_id = req->drb_id
+	//TD find way to assign cause
+	drb_fail_rsp->cause = 1;
+	return;
+}
+
+pfm_retval_t e1ap_bearer_ctx_modify(e1ap_bearer_ctx_modify_req_t *req,
+			            e1ap_bearer_ctx_modify_rsp_t *rsp)
+{
+	pfm_retval_t ret;
 	ue_ctx_t * ue_ctx;
+	tunnel_key_t *tunnel_key;
+	tunnel_t* tunnel_entry;
 	// Error if request is invalid 
 	if (req == NULL )	
 	{
@@ -75,7 +167,7 @@ pfm_retval_t e1ap_bearer_ctx_modify(
 			"ue_ctx doesn't exist for req ue_id");
 		return PFM_FAILED;
 	}
-	// settign up the rsp
+	// setting up the rsp
 	rsp->cucp_ue_id = req->cucp_ue_id;
 	rsp->cuup_ue_id = req->cuup_ue_id;
 	// TD do something with the cause parameter
@@ -84,12 +176,86 @@ pfm_retval_t e1ap_bearer_ctx_modify(
 	rsp->pdus_setup_fail_count = 0;
 	
 	rsp->pdus_modify_succ_count = 0;
-	rsp->pdus_modify_fail_count = 0
+	rsp->pdus_modify_fail_count = 0;
 	// servicing setup requests
 	for (int i = 0;i < req->pdus_setup_count;i++)
 	{
-		
+		// Setting up pointers to frequently used but really long named values	
+		pdus_setup_fail_rsp_info_t *pdus_setup_fail = 
+		&(rsp->pdus_setup_fail_list[rsp->pdus_setup_fail_count]);
+
+		pdus_setup_succ_rsp_info_t *pdus_setup_succ = 
+		&(rsp->pdus_setup_succ_list[rsp->pdus_setup_succ_count]);	
+
+		ret = tunnel_key_allocate(tunnel_key,TUNNEL_TYPE_PDUS);
+		if (ret == PFM_FAILED)
+		{
+			pfm_log_msg(PFM_LOG_ERR,
+					"Error allocating tunnel key");
+			bearer_pdus_setup_failed(&(req->pdus_list[i]),pdus_setup_fail);
+			rsp->pdus_setup_fail_count++;
+			continue;
+		}
+		tunnel_entry = bearer_pdus_setup(tunnel_key,&(req->pdus_list[i]));
+
+		if (tunnel_entry == NULL)
+		{
+			pfm_log_msg(PFM_LOG_ERR,
+				    "pdus_create failed");
+			//TD pdus failure handle
+			bearer_pdus_setup_failed(&(req->pdus_list[i]),pdus_setup_fail);
+			rsp->pdus_setup_fail_count++;
+			continue;
+		}
+	
+		// TD flow_count,ul_new_flow_detected_bit_map,flow_list
+		ue_ctx->pdus_list[ue_ctx->pdus_count] = tunnel_entry;
+
+		for (int j = 0; j < req->pdus_setup_list[i].drb_count;j++)
+		{
+			// Setting up pointers to frequently used but really wrong names
+			drb_setup_succ_rsp_info_t *drb_setup_succ = 
+			pdus_setup_succ->drb_succ_list[pdus_setup_succ->drb_setup_succ_count];
+			
+			drb_setup_fail_rsp_info_t *drb_setup_fail = 
+			pdus_setup_fail->drb_fail_list[pdus_setup_succ->drb_setup_fail_count];
+	
+			drb_setup_req_info_t* drb_req = 
+			req->pdus_setup_list[i].drb_list[j];	
+			ret = tunnel_key_allocate(tunnel_key,TUNNEL_TYPE_DRB);
+			if (ret == PFM_FAILED)
+			{
+				pfm_log_msg(PFM_LOG_ERR,
+					"Error allocating tunnel key");
+				bearer_drb_setup_failed(drb_req,drb_setup_fail);
+				pdus_setup_succ->drb_setup_fail_count++;
+				continue;
+			}
+			
+			tunnel_entry = bearer_drb_setup(tunnel_entry,drb_req);
+	
+			if (tunnel_entry == NULL)
+			{
+				pfm_log_msg(PFM_LOG_ERR,
+					    "drb_setup failed");
+				bearer_drb_setup_failed(drb_req,drb_setup_fail)
+				pdus_setup_succ->drb_setup_fail_count++;
+				continue;
+			}
+			bearer_drb_setup_success(tunnel_entry,drb_setup_succ);
+			pdus_setup_succ->drb_setup_succ_count++;
+		}
+		rsp->pdus_setup_succ_count++;
 	}
+	
+	// servicing modify requests
+
+	for (int i = 0;i < req->pdus_modify_count;i++)
+	{
+		
+
+	}
+
 	
 
 }

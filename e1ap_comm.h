@@ -113,4 +113,9 @@ typedef struct
 	uint32_t        cause;                  // Cause 9.3.1.2
 } pdus_setup_fail_rsp_info_t;
 
+// Tunnel key allocate
+
+pfm_retval_t
+tunnel_key_allocate(tunnel_key_t *tun_k,tunnel_t tun_t)
+
 #endif
