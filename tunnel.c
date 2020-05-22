@@ -3,124 +3,142 @@
 #include "tunnel.h"
 #include "pfm_comm.h"
 #include "pfm_utils.h"
+#include "pfm_route.h"
 #include <rte_hash.h>
 #include <rte_jhash.h>
 #include <string.h>
 
 #define PFM_TUNNEL_HASH_NAME "TUNNEL_TABLE_HASH"
-#define PFM_TUNNEL_TABLE_ENTRIES 32
-#define PFM_TUNNEL_HASH_KEY_LEN 2
 
 static tunnel_t tunnel_table_g[MAX_TUNNEL_COUNT];
 static uint32_t last_allocated_slot_g = 0;
 static struct rte_hash *hash_mapper;
-static pfm_bool_t hash_up = PFM_FALSE;
-/*
-Using pointer to a constant concept here to make sure changes are not made to the tunnel_entry returned from tunnel_get
-*/
+static pfm_bool_t tunnel_table_up = PFM_FALSE;
 
-static int 
-hash_init(void)	
+
+static uint32_t cu_pdus_id = 0;
+static uint32_t cu_drb_id  = 0;
+
+// TD implement a better way to assign identifiers using hash probably
+pfm_retval_t
+tunnel_key_allocate(tunnel_key_t* tunnel_key,tunnel_type_t ttype,void * req)
 {
-	if (hash_up != PFM_FALSE)	
+	switch (ttype)
 	{
-		pfm_log_msg(PFM_LOG_ERR,
-			    "ARP table already initialised");
+		case TUNNEL_TYPE_PDUS:
+			// Get the local IP address for the given pdus_ul_ip_addr
+			route_t* route_entry = 
+			    pfm_route_query(((pdus_setup_req_info_t*)req)->pdus_ul_ip_addr);
+			if (route_entry ==  NULL)
+				return PFM_FAILED;
+			tunnel_key->ip_addr = route_entry->gateway_addr;
+			// TD Assign the te_id  in a better way
+			tunnel_key->te_id = cu_pdus_id++;
+			return PFM_SUCCESS;
+			break;
+		case TUNNEL_TYPE_DRB:
+			// TD finding F1u address
+			tunnel_key->ip_addr = pfm_str2ip("192.168.0.1");
+			tunnel_key->te_id   = cu_drb_id++;
+			return PFM_SUCCESS;
+			break;
+		default : return PFM_FAILED;
+			  break;
 	}
+}
 
+static pfm_retval_t 
+tunnel_table_init(void)	
+{
+
+	// Initialize the hash table
 	struct rte_hash_parameters hash_params = 
 	{
 		.name			=	PFM_TUNNEL_HASH_NAME,
-		.entries 		= 	PFM_TUNNEL_TABLE_ENTRIES,
+		.entries 		= 	MAX_TUNNEL_COUNT,
 		.reserved		= 	0,
-		.key_len		=	PFM_TUNNEL_HASH_KEY_LEN,
+		.key_len		=	sizeof(tunnel_t),
 		.hash_func		= 	rte_jhash,
 		.hash_func_init_val	=	0,
 		.socket_id		=	(int)rte_socket_id()
 	};
-
 	hash_mapper	=	rte_hash_create(&hash_params);
 	if (hash_mapper == NULL)	
 	{
 		pfm_log_msg(PFM_LOG_ALERT,
 			    "Error during arp init");
-		return -1;
+		return PFM_FAILED;
 	}
-	return 0;
 
-
+	// Clear the tunnel entries
+	for (int i = 0;i < MAX_TUNNEL_COUNT;i++)
+	{
+		tunnel_table_g[i].is_row_used = PFM_FALSE;
+	}
+	tunnel_table_up = PFM_TRUE;
+	return PFM_FAILED;
 }
-
-
 
 const tunnel_t*
 tunnel_get(tunnel_key_t *key)
 {
 	int ret;	
 	tunnel_t *entry;
-	if (hash_up == PFM_FALSE)	
+	// If tunnel_table not up ERROR
+	if (tunnel_table_up == PFM_FALSE)	
 	{
-		ret = hash_init();
-		if (ret != 0)	
-		{
-			pfm_log_msg(PFM_LOG_WARNING,
-				    "Failed to init tunnel_table ");
-			return NULL;
-		}
-		pfm_trace_msg("Initialised tunnel_table");
+		pfm_log_msg(PFM_LOG_ERR,"tunnel table uninitialized");
+		return NULL;
 	}
-	ret = rte_hash_lookup_data(hash_mapper,
-				   (void *)key,
-				   (void *)entry);
-	if (ret == 0)	{
-		return entry;
-	}
+	// Lookup for key in hash table 
+	ret = rte_hash_lookup_data(hash_mapper,key,&entry);
 	
+	// If hash hits return value 
+	if (ret == 0)	
+		return entry;
+	
+	// Log reason for miss
 	if (ret < 0)	
 	{
 		if ( ret ==  -ENOENT)  
-		{ 
-			pfm_log_msg(PFM_LOG_ERR,
-				    "entry not in tunnel_table");			
-		}
+			pfm_trace_msg("tunnel_entry not found"); 
 		if (ret == -EINVAL)
-		{
-			pfm_log_msg(PFM_LOG_ERR,
-				    "invalid arguments for tunnel_get");
-		}
+			pfm_log_msg(PFM_LOG_ERR,"invalid arguments for tunnel_get");
 	}
-	
 	return NULL;
-	
 }
 
 tunnel_t *      
 tunnel_add(tunnel_key_t *key)
 {
 	int ret;	
-	if (hash_up == PFM_FALSE)	
+	tunnel_t *tunnel_entry;
+
+	// Check if table is up, else initialize it 
+	if (tunnel_table_up == PFM_FALSE)	
 	{
-		ret = hash_init();
+		ret = tunnel_table_init();
 		if (ret != 0)	
 		{
-			pfm_log_msg(PFM_LOG_WARNING,
-				    "Failed to init tunnel_table ");
+			pfm_log_msg(PFM_LOG_WARNING,"Failed to init tunnel_table ");
 			return NULL;
 		}
 		pfm_trace_msg("Initialised tunnel_table");
 	}
-	if (key == NULL)	
-	{
-		return NULL;
-	}
-	// Circular queue style search for empty entry 
-	for (uint32_t i =  (last_allocated_slot_g+1)%PFM_TUNNEL_TABLE_ENTRIES;
-		i != last_allocated_slot_g;
-		i = (i+1)%PFM_TUNNEL_TABLE_ENTRIES)
+
+	// Check if entry already exists, return entry 
+	ret = rte_hash_lookup_data(hash_mapper,key,&tunnel_entry);
+	if (ret == 0)
+		return tunnel_entry;
+
+	// If not found allocate an empty slot from table 
+	for (uint32_t i = last_allocated_slot_g + 1;i != last_allocated_slot_g;i++)
 	{	
-		if (tunnel_table_g[i].is_row_used == 0)
+		if (i == MAX_TUNNEL_COUNT)
+			i = 0;
+		if (!(tunnel_table_g[i].is_row_used)) 
 		{
-			tunnel_table_g[i].is_row_used 	= 1;
+			tunnel_table_g[i].is_row_used 	= PFM_TRUE;
 			tunnel_table_g[i].key.ip_addr 	= key->ip_addr;
 			tunnel_table_g[i].key.te_id	= key->te_id;
 			last_allocated_slot_g = i;
@@ -128,8 +146,8 @@ tunnel_add(tunnel_key_t *key)
 			return &(tunnel_table_g[i]);
 		}
 	}
-	pfm_log_msg(PFM_LOG_ERR,
-		    "tunnel_table is full");
+	// If no free entries return NULL
+	pfm_log_msg(PFM_LOG_ERR,"tunnel_table is full");
 	return NULL;
 }
 
@@ -138,55 +156,36 @@ tunnel_remove(tunnel_key_t *key)
 {
 	int ret;	
 	tunnel_t * entry;
-	if (hash_up == PFM_FALSE)	
+	if (tunnel_table_up == PFM_FALSE)	
 	{
-		ret = hash_init();
-		if (ret != 0)	
-		{
-			pfm_log_msg(PFM_LOG_WARNING,
-				    "Failed to init tunnel_table ");
-			return PFM_FAILED;
-		}
-		pfm_trace_msg("Initialised tunnel_table");
+		pfm_log_msg(PFM_LOG_ERR,"tunnel_table uninitialized");
+		return PFM_FAILED;
 	}
 	
 	// Get the tunnel entry
-	ret = rte_hash_lookup_data(hash_mapper,
-				   (void *) key,
-				   (void *) entry);
-	// Handle if not present 
+	ret = rte_hash_lookup_data(hash_mapper,key,&entry);
+
+	// Handle if no entry present 
 	if (ret < 0)	
 	{
 		if ( ret ==  -ENOENT)  
-		{ 
-			pfm_log_msg(PFM_LOG_ERR,
-				    "entry not in tunnel_table");			
-		}
+			pfm_log_msg(PFM_LOG_ERR,"entry not in tunnel_table");			
 		if (ret == -EINVAL)
-		{
-			pfm_log_msg(PFM_LOG_ERR,
-				    "invalid arguments for tunnel_remove");
-		}
+			pfm_log_msg(PFM_LOG_ERR,"invalid arguments for tunnel_remove");
+
 		return PFM_FAILED;	
 	}
-	// Clear the entry 
-	memset(entry,0,sizeof(tunnel_t));
-	//delete the key
-	ret = rte_hash_del_key(hash_mapper,
-			       (void *)key);
+
+	// Clear the entry and delete hash key
+	entry->is_row_used = PFM_FALSE;
+	ret = rte_hash_del_key(hash_mapper,key);
 
 	if (ret < 0)	
 	{
 		if ( ret ==  -ENOENT)  
-		{ 
-			pfm_log_msg(PFM_LOG_ERR,
-				    "entry not in tunnel_table");			
-		}
+			pfm_log_msg(PFM_LOG_ERR,"entry not in tunnel_table");			
 		if (ret == -EINVAL)
-		{
-			pfm_log_msg(PFM_LOG_ERR,
-				    "invalid arguments for tunnel_remove");
-		}
+			pfm_log_msg(PFM_LOG_ERR,"invalid arguments for tunnel_remove");
 		return PFM_FAILED;	
 	}
 	return PFM_SUCCESS;
@@ -197,35 +196,42 @@ tunnel_modify(tunnel_key_t *key)
 {
 	int ret;	
 	tunnel_t* entry;
-	if (hash_up == PFM_FALSE)	
+	if (tunnel_table_up == PFM_FALSE)	
 	{
-		ret = hash_init();
+		ret = tunnel_table_init();
 		if (ret != 0)	
 		{
-			pfm_log_msg(PFM_LOG_WARNING,
-				    "Failed to init tunnel_table ");
+			pfm_log_msg(PFM_LOG_WARNING,"Failed to init tunnel_table ");
 			return NULL;
 		}
 		pfm_trace_msg("Initialised tunnel_table");
 	}
 
-	ret = rte_hash_lookup_data(hash_mapper,
-				   (void *)key,
-				   (void *)entry);
-	if (ret == 0)	
+	ret = rte_hash_lookup_data(hash_mapper,key,&entry);
+
+	if (ret != 0)	
 	{
-		pfm_log_msg(PFM_LOG_ERR,
-			    "Attempting to modify entry that doesn't exist");
+		pfm_log_msg(PFM_LOG_ERR,"Attempting to modify entry that doesn't exist");
 		return NULL;
 	}
 	
-	for (uint32_t i = (last_allocated_slot_g+1)%PFM_TUNNEL_TABLE_ENTRIES;
-		i != last_allocated_slot_g;
-		i = (i+1)%PFM_TUNNEL_TABLE_ENTRIES)
+	for (uint32_t i = last_allocated_slot_g + 1;i != last_allocated_slot_g;i++)
 	{
+		if (i == MAX_TUNNEL_COUNT)
+			i = 0
 		if (tunnel_table_g[i].is_row_used == 0)
 		{
-			tunnel_table_g[i].is_row_used	=	1;
+			/* 
+			We are setting the is_row_used field to PFM_TRUE
+				-  this is to make it unavailable as a free entry when 
+				   using tunnel_add or tunnel_commit
+				-  we still have to set the is_row_used value to true
+				   after calling commit and the key is added
+				-  this is because the field is reset for any entry that has
+			           same key, in many cases the parameter passed to the 
+				   tunnel_commit is an already existing entry
+			*/
+			tunnel_table_g[i].is_row_used	=	PFM_TRUE;
 			tunnel_table_g[i].key.ip_addr	=	key->ip_addr;
 			tunnel_table_g[i].key.te_id	=	key->te_id;
 			last_allocated_slot_g		=	i;
@@ -241,49 +247,32 @@ tunnel_commit(tunnel_t* nt)
 {
 	int ret;	
 	tunnel_t *entry;
-	if (hash_up == PFM_FALSE)	
+	if (tunnel_table_up == PFM_FALSE)	
 	{
-		ret = hash_init();
-		if (ret != 0)	
-		{
-			pfm_log_msg(PFM_LOG_WARNING,
-				    "Failed to init tunnel_table ");
-			return PFM_FAILED;
-		}
-		pfm_trace_msg("Initialised tunnel_table");
+		pfm_log_msg(PFM_LOG_ERR,"tunnel_table uninitialized")
+		return PFM_FAILED;
 	}
+
 	if (nt == NULL)
 	{
-		pfm_log_msg(PFM_LOG_ERR,
-			    "Invalid tunnel table entry pointer");
+		pfm_log_msg(PFM_LOG_ERR,"Invalid tunnel table entry pointer");
+		return PFM_FAILED;
 	}
+	//Look if an entry exists with same key
+	ret == rte_hash_lookup_data(hash_mapper,&nt->key,&entry);
+
+	//Clear existing entry and reset is_row_used in case both are same
+	entry->is_row_used = PFM_FALSE;
+	nt->is_row_used    = PFM_TRUE;
+
+	ret = rte_hash_add_key_data(hash_mapper,&(nt->key),nt);
 	
-	ret == rte_hash_lookup_data(hash_mapper,
-				    (void *)&nt->key,
-				    (void *)entry);
-	if (ret >= 0)
-	{
-		memset(entry,0,sizeof(tunnel_t));
-	}
-	
-	// Insert the tunnel_t entry into the hash table 
-	ret = rte_hash_add_key_data(hash_mapper,
-				   (void *)&nt->key,
-				   (void *)nt);
 	if (ret == 0)
 		return PFM_SUCCESS;
 	if (ret == -EINVAL)
-	{
-		pfm_log_msg(PFM_LOG_ERR,
-		            "incorrect parameters tunnel_commit");
-		return PFM_FAILED;
-	}
+		pfm_log_msg(PFM_LOG_ERR,"incorrect parameters tunnel_commit");
 	if (ret == -ENOSPC)
-	{
-		pfm_log_msg(PFM_LOG_ERR,
-			    "tunnel_table is full");
-		return PFM_FAILED;
-	}
+		pfm_log_msg(PFM_LOG_ERR,"tunnel_table is full");
 	return PFM_FAILED;
 }
 
@@ -293,40 +282,20 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 	int ret;	
 	tunnel_t* entry;
 	char tunnel_ip_r[STR_IP_ADDR_SIZE],tunnel_ip_l[STR_IP_ADDR_SIZE];
-	if (hash_up == PFM_FALSE)	
+	if (tunnel_table_up == PFM_FALSE)	
 	{
-		ret = hash_init();
-		if (ret != 0)	
-		{
-			pfm_log_msg(PFM_LOG_WARNING,
-				    "Failed to init tunnel_table ");
-			return ;
-		}
-		pfm_trace_msg("Initialised tunnel_table");
-	}
-	if (fp == NULL)
-	{
-		pfm_log_msg(PFM_LOG_ERR,
-			    "Invalid log error");
-		return ;
+		pfm_log_msg(PFM_LOG_ERR,"tunnel_table uninitialized");
+		return;
 	}
 	
-	ret = rte_hash_lookup_data(hash_mapper,
-				   (void *)key,
-				   (void *)entry);
+	ret = rte_hash_lookup_data(hash_mapper,key,&entry);
 	if (ret < 0)	
 	{
-		if ( ret ==  -ENOENT)  
-		{ 
-			pfm_log_msg(PFM_LOG_ERR,
-				    "entry not in tunnel_table");			
-		}
+		if (ret == -ENOENT)  
+			pfm_log_msg(PFM_LOG_ERR,"entry not in tunnel_table");
 		if (ret == -EINVAL)
-		{
-			pfm_log_msg(PFM_LOG_ERR,
-				    "invalid arguments for tunnel_print_show");
-		}
-		return ;
+			pfm_log_msg(PFM_LOG_ERR,"invalid arguments for tunnel_print_show");
+		return;
 	}
 	switch(entry->tunnel_type)	
 	{
@@ -395,21 +364,15 @@ tunnel_print_list(FILE *fp, tunnel_type_t type)
 {
 	int ret;
 	uint32_t hash_count,pos = 0;
-	const void* key_ptr;
-	void  *data_ptr;
+	tunnel_key_t* key_ptr;
+	tunnel_t *entry;
 	
 	
 	char tunnel_ip_r[STR_IP_ADDR_SIZE],tunnel_ip_l[STR_IP_ADDR_SIZE];	
-	if (hash_up == PFM_FALSE)	
+	if (tunnel_table_up == PFM_FALSE)	
 	{
-		ret = hash_init();
-		if (ret != 0)	
-		{
-			pfm_log_msg(PFM_LOG_WARNING,
-				    "Failed to init tunnel_table ");
-			return ;
-		}
-		pfm_trace_msg("Initialised tunnel_table");
+		pfm_log_msg(PFM_LOG_ERR,"tunnel_table uninitialized");
+		return;
 	}
 	hash_count = rte_hash_count(hash_mapper);
 	if (hash_count == 0)	
@@ -425,9 +388,8 @@ tunnel_print_list(FILE *fp, tunnel_type_t type)
 		   "Remote ip addr",
 		   "Tunnel type");
 	
-	while(rte_hash_iterate(hash_mapper,&key_ptr,&data_ptr,&pos) >= 0)	
+	while(rte_hash_iterate(hash_mapper,&key_ptr,&entry,&pos) >= 0)	
 	{
-		tunnel_t *entry = (tunnel_t *)data_ptr;
 		fprintf(fp,"%-16s | %-6d | %-16s | %-11d\n",
 			pfm_ip2str(entry->key.ip_addr,tunnel_ip_l),
 			entry->key.te_id,

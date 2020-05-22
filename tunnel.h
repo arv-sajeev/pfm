@@ -45,7 +45,7 @@ typedef struct
 	pfm_ip_addr_t	remote_ip;
 	uint32_t        remote_te_id;
 	tunnel_type_t	tunnel_type:2;
-	uint8_t		is_row_used:1;
+	pfm_bool_t	is_row_used:1;
 	union
 	{
 		pdus_info_t	pdus_info;
@@ -61,4 +61,6 @@ tunnel_t *		tunnel_modify(tunnel_key_t *key);
 pfm_retval_t		tunnel_commit(tunnel_t* nt);
 void 			tunnel_print_show(FILE *fp, tunnel_key_t *key);
 void 			tunnel_print_list(FILE *fp, tunnel_type_t ttype);
+pfm_retval_t 		tunnel_key_allocate(tunnel_key_t *key,tunnel_type_t ttype,void *req);
+
 #endif
