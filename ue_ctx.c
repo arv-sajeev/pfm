@@ -15,6 +15,14 @@ static ue_ctx_t ue_ctx_table_g[MAX_UE_COUNT];
 static uint32_t last_allocated_slot_g = 0;
 static struct rte_hash* hash_mapper;
 static pfm_bool_t hash_up = PFM_FALSE;
+static ue_id = 0;
+
+pfm_retval_t
+ue_id_allocate()
+{
+	// TD FInd a better a way to do this 
+	return ue_id++;
+}
 
 
 

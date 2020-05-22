@@ -51,6 +51,7 @@ pdus_create(ue_ctx_t* ue_ctx,pdus_setup_req_info_t* req,pdus_setup_succ_rsp_info
 		rsp->drb_setup_succ_count++;
 	}
 	ue_ctx->pdus_tunnel_list[ue_ctx->pdus_count] = tunnel_entry;
+	ue_ctx->pdus_count++;
 	return PFM_SUCCESS;
 }
 
@@ -66,7 +67,7 @@ pdus_succ_rsp_create(tunnel_t *tunnel_entry,pdus_setup_succ_rsp_info_t *succ_rsp
 }
 
 void
-pdus_fail_rsp(pdus_setup_req_info_t* req,pdus_setup_fail_rsp_info_t* rsp)
+pdus_fail_rsp_create(pdus_setup_req_info_t* req,pdus_setup_fail_rsp_info_t* rsp)
 {
 	rsp->pdus_id = req->pdus_id;
 	// TD how to assign cause

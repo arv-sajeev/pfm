@@ -35,6 +35,7 @@ drb_create(ue_ctx_t* ue_ctx,drb_setup_req_info_t* req,drb_setup_succ_rsp_info_t 
 
 	drb_succ_rsp_create(tunnel_entry,rsp);
 	ue_ctx->drb_tunnel_list[ue_ctx->drb_count] = tunnel_entry;
+	ue_ctx->drb_count++;
 	return PFM_SUCCESS;
 }
 
