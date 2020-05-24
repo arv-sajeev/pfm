@@ -1,7 +1,11 @@
 #include "tunnel.h"
 #include "ue_ctx.h"
+#include "drb.h"
 #include "e1ap_comm.h"
-
+#include "pfm_comm.h"
+#include "pfm_log.h"
+#include "pfm.h"
+#include "cuup.h"
 
 pfm_retval_t
 drb_create(ue_ctx_t* ue_ctx,drb_setup_req_info_t* req,drb_setup_succ_rsp_info_t *rsp)
@@ -10,7 +14,7 @@ drb_create(ue_ctx_t* ue_ctx,drb_setup_req_info_t* req,drb_setup_succ_rsp_info_t 
 	tunnel_key_t* tunnel_key;
 	tunnel_t* tunnel_entry;
 	
-	//Assign a tunnel eky with drb_dl_ip_addr
+	//Assign a tunnel key with drb_dl_ip_addr
 	ret = tunnel_key_allocate(tunnel_key,TUNNEL_TYPE_DRB,req);
 	if (ret == PFM_FAILED)
 	{

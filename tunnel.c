@@ -50,6 +50,8 @@ tunnel_key_allocate(tunnel_key_t* tunnel_key,tunnel_type_t ttype,void * req)
 static pfm_retval_t 
 tunnel_table_init(void)	
 {
+	pfm_trace_msg("Initializing tunnel_table");
+	
 
 	// Initialize the hash table
 	struct rte_hash_parameters hash_params = 

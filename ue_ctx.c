@@ -6,18 +6,18 @@
 #include "ue_ctx.h"
 #include <string.h>
 
-#define PFM_UE_CTX_TABLE_NAME "PFM_UE_CTX_TABLE"
-#define PFM_UE_CTX_TABLE_ENTRIES 32
-#define PFM_UE_CTX_HASH_KEY_LEN 1
+#define PFM_UE_CTX_TABLE_NAME "UE_CTX_TABLE_HASH"
 
 
 static ue_ctx_t ue_ctx_table_g[MAX_UE_COUNT];
 static uint32_t last_allocated_slot_g = 0;
 static struct rte_hash* hash_mapper;
 static pfm_bool_t hash_up = PFM_FALSE;
+static pfm_bool_t ue_ctx_table_up = PFM_FALSE;
+
 static ue_id = 0;
 
-pfm_retval_t
+uint32_t
 ue_id_allocate()
 {
 	// TD FInd a better a way to do this 
@@ -26,21 +26,16 @@ ue_id_allocate()
 
 
 
-static int 
-hash_init(void)	
+static pfm_retval_t 
+ue_ctx_table_init(void)	
 {
-	if (hash_up != PFM_FALSE)	
-	{
-		pfm_log_msg(PFM_LOG_ERR,
-			    "ARP table already initialised");
-	}
 
 	struct rte_hash_parameters hash_params = 
 	{
 		.name			=	PFM_UE_CTX_TABLE_NAME,
-		.entries 		= 	PFM_UE_CTX_TABLE_ENTRIES,
+		.entries 		= 	MAX_UE_COUNT,
 		.reserved		= 	0,
-		.key_len		=	PFM_UE_CTX_HASH_KEY_LEN,
+		.key_len		=	sizeof(uint32_t),
 		.hash_func		= 	rte_jhash,
 		.hash_func_init_val	=	0,
 		.socket_id		=	(int)rte_socket_id()
@@ -51,9 +46,16 @@ hash_init(void)
 	{
 		pfm_log_msg(PFM_LOG_ALERT,
 			    "Error during arp init");
-		return -1;
+		return PFM_FAILED;
 	}
-	return 0;
+
+	for (int i = 0;i < MAX_UE_COUNT;i++)
+	{
+		ue_ctx_table_g[i].is_row_used = PFM_FALSE;
+	}
+	
+	ue_ctx_table_up = PFM_TRUE;
+	return PFM_SUCCESS;
 }
 
 
@@ -271,46 +273,31 @@ pfm_retval_t	ue_ctx_commit(ue_ctx_t *new_ctx)
 	return PFM_FAILED;
 }
 
-const ue_ctx_t *ue_ctx_get(uint32_t ue_id)
+const ue_ctx_t *
+ue_ctx_get(uint32_t ue_id)
 {
 	int ret;	
 	ue_ctx_t* entry;
 	if (hash_up == PFM_FALSE)	
 	{
-		ret = hash_init();
-		if (ret != 0)	
-		{
-			pfm_log_msg(PFM_LOG_WARNING,
-				    "Failed to init ue_ctx_table ");
-			return NULL;
-		}
+		pfm_log_msg(PFM_LOG_ERR,"ue_ctx_table uninitialize");
+		return NULL;
 	}
-	ret = rte_hash_lookup_data(hash_mapper,
-				   (void *)&ue_id,
-				   (void *)entry);
+	ret = rte_hash_lookup_data(hash_mapper,ue_id,&entry);
 	if (ret == 0)	
-	{
 		return entry;
-	}
-	
 	if (ret < 0)	
 	{
 		if (ret == -ENOENT)	
-		{
 			pfm_trace_msg("No entry found in ue_ctx_table");
-		}
 		if (ret == -EINVAL)	
-		{
-			pfm_log_msg(PFM_LOG_ERR,
-				    "Invalid parameters in ue_ctx_table");
-		}
-
-
+			pfm_log_msg(PFM_LOG_ERR,"Invalid parameters in ue_ctx_table");
 	}	
 	return NULL;
 }
 
-void		ue_ctx_print_list(FILE *fp)
+void	
+ue_ctx_print_list(FILE *fp)
 {	
 	const uint32_t *key_ptr;
 	ue_ctx_t * data_ptr;

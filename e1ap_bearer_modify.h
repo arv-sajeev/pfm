@@ -46,8 +46,8 @@ typedef struct
 } pdus_remove_req_info_t;
 
 
-// BEARER CONTEXT MODIFICAION RESPONSE. sec 9.2.2.5 
-// PDU Session Resorce Modify List 9.3.3.19
+// BEARER CONTEXT MODIFICATION RESPONSE. sec 9.2.2.5 
+// PDU Session Resource Modify List 9.3.3.19
 typedef struct
 {
 	uint8_t	pdus_id;                // PDU Session ID 9.3.1.21
@@ -56,8 +56,8 @@ typedef struct
 	uint8_t	drb_modify_succ_count;
 	uint8_t	drb_modify_fail_count;
 
-	// NG DL UP Trasport Layer Info 9.3.2.1
-	// IP Address and TEID of CUUP to which UPF can send DL pkts
+	// NG DL UP Transport Layer Info 9.3.2.1
+	// IP Address and TEID of CUUP to which UPF can send DL packets
 	pfm_ip_addr_t   pdus_dl_ip_addr;
 	uint32_t        pdus_dl_teid;
 	
@@ -67,7 +67,7 @@ typedef struct
 	// DRB Failed List
 	drb_setup_fail_rsp_info_t drb_setup_fail_list[MAX_DRB_PER_PDUS];
 
-	// DRB Modificaion List
+	// DRB Modification List
 	drb_setup_succ_rsp_info_t drb_modify_succ_list[MAX_DRB_PER_PDUS];
 
 	// DRB Failed To Modify List
@@ -102,7 +102,7 @@ typedef struct
 {
 	uint32_t	cucp_ue_id;
 	uint32_t	cuup_ue_id;
-	uint32_t	cause;	// set to 0 is sucess
+	uint32_t	cause;	// set to 0 is success
 	uint8_t pdus_setup_succ_count;
 	uint8_t pdus_setup_fail_count;
 	uint8_t pdus_modify_succ_count;
@@ -114,7 +114,7 @@ typedef struct
 	// PDU Session Resource Failed List 9.3.3.18
 	pdus_setup_fail_rsp_info_t pdus_setup_fail_list[MAX_PDUS_PER_UE];
 
-	// PDU Session Resorce Modify List 9.3.3.19
+	// PDU Session Resource Modify List 9.3.3.19
 	pdus_modify_succ_rsp_info_t pdus_modify_succ_list[MAX_PDUS_PER_UE];
 
 	// PDU Session Resource Failed To Modify List 9.3.3.20

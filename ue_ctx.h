@@ -23,7 +23,7 @@ pfm_retval_t		ue_ctx_commit(ue_ctx_t *new_ctx);
 const ue_ctx_t *	ue_ctx_get(uint32_t ue_id);
 void			ue_ctx_print_list(FILE *fp);
 void			ue_ctx_print_show(FILE *fp, uint32_t ue_id);
-
+uint32_t		ue_id_allocate(void);
 
 #endif
 

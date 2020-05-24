@@ -1,7 +1,10 @@
 #include "tunnel.h"
 #include "ue_ctx.h"
 #include "e1ap_comm.h"
-
+#include "cuup.h"
+#include "pfm.h"
+#include "pfm_comm.h"
+#include "pfm_log.h"
 
 pfm_retval_t 
 pdus_create(ue_ctx_t* ue_ctx,pdus_setup_req_info_t* req,pdus_setup_succ_rsp_info_t *rsp)
