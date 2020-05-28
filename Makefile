@@ -5,24 +5,27 @@
 APP = cuup.exe
 
 # all source are stored in SRCS-y
-SRCS-y :=	cuup.c \
-		pfm.c \
-		pfm_log.c \
-		pfm_worker_loop.c \
-		pfm_link.c \
-		pfm_rx_loop.c \
-		pfm_tx_loop.c \
-		pfm_kni.c \
-		pfm_ring.c \
-		pfm_classifier.c \
-		pfm_dist_loop.c	\
-		pfm_route.c	\
-		pfm_arp.c	\
-		pfm_cli.c	\
-		ue_ctx.c	\
-		tunnel.c	\
-		e1ap_bearer_setup.c \
-		pfm_utils.c
+SRCS-y :=	cuup.c 			\
+		pfm.c 			\
+		pfm_log.c 		\
+		pfm_worker_loop.c 	\
+		pfm_link.c 		\
+		pfm_rx_loop.c 		\
+		pfm_tx_loop.c 		\
+		pfm_kni.c 		\
+		pfm_ring.c 		\
+		pfm_classifier.c 	\
+		pfm_dist_loop.c		\
+		pfm_route.c		\
+		pfm_arp.c		\
+		pfm_cli.c		\
+		pfm_utils.c		\
+		ue_ctx.c		\
+		tunnel.c		\
+		pdus.c			\
+		drb.c			\
+		e1ap_bearer_setup.c	\
+		e1ap_bearer_modify.c	\
 
 # Build using pkg-config variables if possible
 ifeq ($(shell pkg-config --exists libdpdk && echo 0),0)

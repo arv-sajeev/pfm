@@ -13,7 +13,7 @@
 typedef struct
 {
 	uint8_t		drb_id;		// DRB ID 9.3.1.16
-	// DL UP paramters	9.3.1.13
+	// DL UP parameters	9.3.1.13
 	// UP Transport Layer Information	9.3.2.1
 	pfm_ip_addr_t   drb_dl_ip_addr; // Transport Layer Addr 9.3.2.4
 	uint32_t        drb_dl_teid;    // GTP-TEID 9.3.2.3
@@ -29,7 +29,7 @@ typedef struct
 	uint8_t		pdus_id;	// PDU Session ID 9.3.1.21
 	uint8_t		drb_count;	// number of DRB the PDU Session
 	
-	/* NG UL UP Trasport Layer Info 9.3.2.1
+	/* NG UL UP Transport Layer Info 9.3.2.1
 	   IP Address & TEID of UPF to where UL NGu packet to be send
 	   for the PDU Session */
 	pfm_ip_addr_t	pdus_ul_ip_addr;// Transport Layer Addr 9.3.2.4
@@ -59,7 +59,7 @@ typedef struct
 	// IP Addr and TEDI of CUUP to which DU can send UL pkts 
 	pfm_ip_addr_t	drb_ul_ip_addr;	// Transport Layer Addr 9.3.2.4
 	uint32_t	drb_ul_teid;	// GTP-TEID 9.3.2.3
-	// TODO flow sucess and faild list to be added
+	// TODO flow success and failed list to be added
 } drb_setup_succ_rsp_info_t; 
 
 // BEARER CONTEXT SETUP RESPONSE. sec 9.2.2.2 of 3GPP TS 38.463

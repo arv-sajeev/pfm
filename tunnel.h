@@ -1,6 +1,7 @@
 #ifndef __TUNNEL_H__
 #define __TUNNEL_H__ 1
 #include "pfm.h"
+#include "cuup.h"
 
 typedef enum
 {
