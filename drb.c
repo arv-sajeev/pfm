@@ -1,12 +1,13 @@
+#include "pfm.h"
+#include "pfm_comm.h"
+#include "pfm_log.h"
+#include "cuup.h"
 #include "tunnel.h"
 #include "ue_ctx.h"
 #include "drb.h"
 #include "e1ap_comm.h"
+#include "e1ap_bearer_setup.h"
 #include "e1ap_bearer_modify.h"
-#include "pfm_comm.h"
-#include "pfm_log.h"
-#include "pfm.h"
-#include "cuup.h"
 
 static void 
 drb_setup_succ_rsp_create(tunnel_t* tunnel_entry,drb_setup_succ_rsp_info_t* rsp)
@@ -28,6 +29,7 @@ drb_setup_fail_rsp_create(drb_setup_req_info_t *req,
 }
 
 
+
 pfm_retval_t
 drb_setup(ue_ctx_t* ue_ctx,
 	   drb_setup_req_info_t* req,
@@ -35,11 +37,11 @@ drb_setup(ue_ctx_t* ue_ctx,
 	   drb_setup_fail_rsp_info_t *fail_rsp)
 {
 	pfm_retval_t ret;
-	tunnel_key_t* tunnel_key;
+	tunnel_key_t tunnel_key;
 	tunnel_t* tunnel_entry;
 	
 	//Assign a tunnel key with drb_dl_ip_addr
-	ret = tunnel_key_allocate(tunnel_key,TUNNEL_TYPE_DRB,req);
+	ret = tunnel_key_allocate(&tunnel_key,TUNNEL_TYPE_DRB,req);
 	if (ret == PFM_FAILED)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_key");
@@ -49,7 +51,7 @@ drb_setup(ue_ctx_t* ue_ctx,
 	}
 
 	//Allocate a free entry from the tunnel table 
-	tunnel_entry = tunnel_add(tunnel_key);
+	tunnel_entry = tunnel_add(&tunnel_key);
 	if (tunnel_entry == NULL)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_entry");
@@ -73,8 +75,9 @@ drb_setup(ue_ctx_t* ue_ctx,
 }
 
 
-
 //----------------------------------modify------------------------------
+
+
 static void 
 drb_modify_succ_rsp_create(tunnel_t* tunnel_entry,drb_setup_succ_rsp_info_t* rsp)
 {
@@ -94,8 +97,6 @@ drb_modify_fail_rsp_create(drb_modify_req_info_t *req,
 	rsp->cause  = cause;
 }
 
-
-
 pfm_retval_t
 drb_modify(ue_ctx_t* ue_ctx,
 	   drb_modify_req_info_t* req,
@@ -103,10 +104,8 @@ drb_modify(ue_ctx_t* ue_ctx,
 	   drb_setup_fail_rsp_info_t* fail_rsp,
 	   uint32_t idx)
 {
-	pfm_retval_t ret;
 	tunnel_t *drb_entry,*old_entry;
 	old_entry = ue_ctx->drb_tunnel_list[idx];
-	uint32_t i,j;
 	
 	drb_entry = tunnel_modify(&(old_entry->key));
 	

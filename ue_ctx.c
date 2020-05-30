@@ -76,7 +76,7 @@ ue_ctx_add(uint32_t ue_id)
 		pfm_trace_msg("Initialised ue_ctx_table");
 	}
 	// If entry already exists return entry 
-	ret = rte_hash_lookup_data(ue_ctx_hashtable_g,&ue_id,&entry);
+	ret = rte_hash_lookup_data(ue_ctx_hashtable_g,&ue_id,(void **)&entry);
 	if (ret == 0)
 		return entry;
 	// Circular queue style search for empty entry 
@@ -108,7 +108,7 @@ ue_ctx_remove(uint32_t ue_id)
 	}
 	
 	// Get the tunnel entry
-	ret = rte_hash_lookup_data(ue_ctx_hashtable_g,&ue_id,&entry);
+	ret = rte_hash_lookup_data(ue_ctx_hashtable_g,&ue_id,(void **)&entry);
 	// Handle if not present 
 	if (ret < 0)	
 	{
@@ -143,7 +143,7 @@ ue_ctx_modify(uint32_t ue_id)
 	}
 	
 	// Check if an instance with this ue_id already exists
-	ret = rte_hash_lookup_data(ue_ctx_hashtable_g,&ue_id,&entry);
+	ret = rte_hash_lookup_data(ue_ctx_hashtable_g,&ue_id,(void **)&entry);
 	// If it doesn't exist it is an invalid request
 	if (ret != 0)	
 	{
@@ -251,7 +251,7 @@ ue_ctx_commit(ue_ctx_t *new_ctx)
 
 	ret = rte_hash_lookup_data(ue_ctx_hashtable_g,
 				   &(new_ctx->cuup_ue_id),
-				   &entry);
+				   (void **)&entry);
 	// if we don't find an entry with new_ctx's cuup_ue_id
 	if (ret < 0)
 	{
@@ -285,7 +285,7 @@ ue_ctx_commit(ue_ctx_t *new_ctx)
 			if (!(entry->is_row_used))
 			{
 				//delete the key from ue_ctx_hashtable_g	
-				ret = rte_hash_del_key(ue_ctx_table_g,&(new_ctx->cuup_ue_id));
+				ret = rte_hash_del_key(ue_ctx_hashtable_g,&(new_ctx->cuup_ue_id));
 				if (ret != 0)
 				{
 					pfm_log_rte_err(PFM_LOG_ERR,"rte_hash_del_key fail");
@@ -326,7 +326,7 @@ ue_ctx_get(uint32_t ue_id)
 		pfm_log_msg(PFM_LOG_ERR,"ue_ctx_table uninitialize");
 		return NULL;
 	}
-	ret = rte_hash_lookup_data(ue_ctx_hashtable_g,&ue_id,&entry);
+	ret = rte_hash_lookup_data(ue_ctx_hashtable_g,&ue_id,(void **)&entry);
 	if (ret == 0)	
 		return entry;
 	if (ret < 0)	
@@ -345,7 +345,7 @@ ue_ctx_print_list(FILE *fp)
 	const uint32_t *key_ptr;
 	ue_ctx_t * data_ptr;
 	uint32_t ptr = 0,hash_count;
-	int pos,ret;
+	int ret;
 	if (ue_ctx_table_up == PFM_FALSE)	
 	{
 		ret = ue_ctx_table_init();

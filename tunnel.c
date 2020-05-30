@@ -94,7 +94,7 @@ tunnel_get(tunnel_key_t *key)
 		return NULL;
 	}
 	// Lookup for key in hash table 
-	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,&entry);
+	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,(void **)&entry);
 	
 	// If hash hits return value 
 	if (ret == 0)	
@@ -131,7 +131,7 @@ tunnel_add(tunnel_key_t *key)
 	}
 
 	// Check if entry already exists, return entry 
-	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,&tunnel_entry);
+	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,(void **)&tunnel_entry);
 	if (ret == 0)
 		return tunnel_entry;
 
@@ -167,7 +167,7 @@ tunnel_remove(tunnel_key_t *key)
 	}
 	
 	// Get the tunnel entry
-	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,&entry);
+	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,(void **)&entry);
 
 	// Handle if no entry present 
 	if (ret < 0)	
@@ -199,7 +199,7 @@ tunnel_modify(tunnel_key_t *key)
 		return NULL;
 	}
 	// Check if an instance with this key already exists
-	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,&entry);
+	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,(void **)&entry);
 
 	if (ret != 0)	
 	{
@@ -232,7 +232,6 @@ pfm_retval_t
 tunnel_commit(tunnel_t* nt)
 {
 	int ret;
-	uint32_t i;	
 	tunnel_t *entry;
 	if (tunnel_table_up == PFM_FALSE)	
 	{
@@ -246,7 +245,7 @@ tunnel_commit(tunnel_t* nt)
 		return PFM_FAILED;
 	}
 	//Look if an entry exists with same key
-	ret == rte_hash_lookup_data(tunnel_hashtable_g,&nt->key,&entry);
+	ret = rte_hash_lookup_data(tunnel_hashtable_g,&nt->key,(void **)&entry);
 	// If we don't find an entry with nt's key
 	if (ret < 0)
 	{
@@ -312,7 +311,7 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 		return;
 	}
 	
-	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,&entry);
+	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,(void **)&entry);
 	if (ret < 0)	
 	{
 		if (ret == -ENOENT)  
@@ -386,7 +385,7 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 void        
 tunnel_print_list(FILE *fp, tunnel_type_t type)
 {
-	int ret;
+printf("TODO: type to be used Type=%d\n",type);
 	uint32_t hash_count,pos = 0;
 	tunnel_key_t* key_ptr;
 	tunnel_t *entry;
@@ -412,7 +411,7 @@ tunnel_print_list(FILE *fp, tunnel_type_t type)
 		   "Remote ip addr",
 		   "Tunnel type");
 	
-	while(rte_hash_iterate(tunnel_hashtable_g,&key_ptr,&entry,&pos) >= 0)	
+	while(rte_hash_iterate(tunnel_hashtable_g,(const void **)&key_ptr,(void **)&entry,&pos) >= 0)	
 	{
 		fprintf(fp,"%-16s | %-6d | %-16s | %-11d\n",
 			pfm_ip2str(entry->key.ip_addr,tunnel_ip_l),

@@ -4,8 +4,8 @@
 #include "e1ap_comm.h"
 #include "ue_ctx.h"
 #include "tunnel.h"
-#include "pdus.c"
-#include "drb.c"
+#include "pdus.h"
+#include "drb.h"
 
 
 
@@ -47,9 +47,9 @@ pfm_retval_t
 e1ap_bearer_ctx_modify(e1ap_bearer_ctx_modify_req_t *req,
 			            e1ap_bearer_ctx_modify_rsp_t *rsp)
 {
-	pfm_retval_t ret;
+	pfm_retval_t ret = PFM_FAILED;
 	ue_ctx_t *ue_ctx;
-	uint32_t  ue_id,i,j;
+	uint32_t  i,j;
 
 	pdus_modify_succ_rsp_info_t *modify_succ_rsp;
 	pdus_modify_fail_rsp_info_t *modify_fail_rsp;

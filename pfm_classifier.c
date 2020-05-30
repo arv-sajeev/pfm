@@ -293,7 +293,6 @@ void  ingress_classify(  const int link_id,
         struct rte_mbuf *kni_bCast_pkts[2];
 	struct rte_mbuf *arp_pkt;
         int kni_pkt_count=0, ring_pkt_count=0;
-	struct rte_ether_hdr *eth_hdr_ptr;
 	struct rte_kni *kni_ptr;
 	struct rte_kni *last_kni_ptr=0;
 	ingress_classifier_t *ic_ptr;

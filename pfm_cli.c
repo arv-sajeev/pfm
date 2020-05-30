@@ -111,13 +111,13 @@ static pfm_cli_retval_t action_callback_ipv4_show(FILE* fpout, char *args)
 	return PFM_CLI_CONTINUE;
 }
 
-static pfm_cli_retval_t action_callback_arp_list(FILE* fpout, char *args)
+static pfm_cli_retval_t action_callback_arp_list(FILE* fpout, __attribute__((unused)) char *args)
 {	
 	pfm_arp_print(fpout);
 	return PFM_CLI_CONTINUE;
 }
 
-static pfm_cli_retval_t action_callback_route_list(FILE* fpout, char *args)
+static pfm_cli_retval_t action_callback_route_list(FILE* fpout, __attribute__((unused))char *args)
 {
 	pfm_route_print(fpout);
 	return PFM_CLI_CONTINUE;

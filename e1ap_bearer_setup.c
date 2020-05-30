@@ -72,7 +72,7 @@ e1ap_bearer_ctx_setup(e1ap_bearer_ctx_setup_req_t *req,
 	
 
 	// Service each pdus_create_request
-	for (int i = 0;i < req->pdus_count;i++)
+	for (i = 0;i < req->pdus_count;i++)
 	{
 		// Storing pointers to make stuff easier 
 		pdus_setup_succ_rsp_info_t* succ_rsp = 
