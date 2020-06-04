@@ -52,7 +52,7 @@ pdus_setup(ue_ctx_t* ue_ctx,
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_key");
 		// TD assign cause properly
-		pdus_setup_fail_rsp_create(req,fail_rsp,1);
+		pdus_setup_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL);
 		return PFM_FAILED;
 	}
 
@@ -64,7 +64,7 @@ pdus_setup(ue_ctx_t* ue_ctx,
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_entry");
 		// TD assign cause properly
 		tunnel_key_free(&tunnel_key);
-		pdus_setup_fail_rsp_create(req,fail_rsp,1);
+		pdus_setup_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL);
 		return PFM_FAILED;
 	}
 	
@@ -104,7 +104,7 @@ pdus_setup(ue_ctx_t* ue_ctx,
 		tunnel_remove(&tunnel_key);
 		tunnel_commit(tunnel_entry);
 		
-		pdus_setup_fail_rsp_create(req,fail_rsp,1);
+		pdus_setup_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL);
 		return PFM_FAILED;
 	}
 
@@ -162,7 +162,7 @@ pdus_modify(ue_ctx_t* ue_ctx,
 	{
 		pfm_log_msg(PFM_LOG_ERR,"tunnel_modify() on tunnel that doesn't exist");
 		// TD cause
-		pdus_modify_fail_rsp_create(req,fail_rsp,1);
+		pdus_modify_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_UNKNOWN_PDUS_ID);
 		return PFM_FAILED;
 	}
 

@@ -21,7 +21,7 @@ drb_setup_succ_rsp_create(tunnel_t* tunnel_entry,drb_setup_succ_rsp_info_t* rsp)
 void 
 drb_setup_fail_rsp_create(drb_setup_req_info_t *req,
 	            drb_setup_fail_rsp_info_t *rsp,
-		    uint32_t cause)
+		    e1ap_fail_cause_t cause)
 {
 	rsp->drb_id = req->drb_id;
 	// TD find way to assign cause 
@@ -46,7 +46,7 @@ drb_setup(ue_ctx_t* ue_ctx,
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_key");
 		// TD assign cause properly
-		drb_setup_fail_rsp_create(req,fail_rsp,1);
+		drb_setup_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL);
 		return PFM_FAILED;
 	}
 
@@ -56,7 +56,7 @@ drb_setup(ue_ctx_t* ue_ctx,
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_entry");
 		// TD assign cause properly
-		drb_setup_fail_rsp_create(req,fail_rsp,1);
+		drb_setup_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL);
 		return PFM_FAILED;
 	}
 
@@ -90,7 +90,7 @@ drb_modify_succ_rsp_create(tunnel_t* tunnel_entry,drb_setup_succ_rsp_info_t* rsp
 void 
 drb_modify_fail_rsp_create(drb_modify_req_info_t *req,
 	                   drb_setup_fail_rsp_info_t *rsp,
-		    	   uint32_t cause)
+		    	   e1ap_fail_cause_t cause)
 {
 	rsp->drb_id = req->drb_id;
 	// TD find way to assign cause 
@@ -113,7 +113,7 @@ drb_modify(ue_ctx_t* ue_ctx,
 	{
 		pfm_log_msg(PFM_LOG_ERR,"tunnel_modify on tunnel that doesn't exist");
 		// TD cause
-		drb_modify_fail_rsp_create(req,fail_rsp,1);
+		drb_modify_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_UNKNOWN_DRB_ID);
 		return PFM_FAILED;
 	}
 

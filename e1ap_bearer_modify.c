@@ -16,7 +16,7 @@
 	- make changes to an existing pdus_session 
 */
 static void
-bearer_modify_failure(uint32_t cucp_ue_id,uint32_t cuup_ue_id,uint32_t cause,e1ap_bearer_ctx_modify_rsp_t* rsp)
+bearer_modify_failure(uint32_t cucp_ue_id,uint32_t cuup_ue_id,e1ap_fail_cause_t cause,e1ap_bearer_ctx_modify_rsp_t* rsp)
 {
 	pfm_log_msg(PFM_LOG_ERR,"Error modifying ue_ctx for bearer");
 	
@@ -49,7 +49,15 @@ e1ap_bearer_ctx_modify(e1ap_bearer_ctx_modify_req_t *req,
 	if (ue_ctx == NULL)
 	{	
 		pfm_log_msg(PFM_LOG_ERR,"attempt to modify ue that doesn't exist");
-		bearer_modify_failure(req->cucp_ue_id,req->cuup_ue_id,1,rsp);
+		bearer_modify_failure(req->cucp_ue_id,req->cuup_ue_id,FAIL_CAUSE_RNL_UNKNOWN_CUUP_ID,rsp);
+		return PFM_FAILED;
+	}
+	// If the cucp-id in request doesn't match the existing UE context cucp-id	
+	if (ue_ctx->cucp_ue_id != req->cucp_ue_id)
+	{
+		pfm_log_msg(PFM_LOG_ERR,"mismatch in cucp-id req : %u ue : %u",
+					req->cucp_ue_id,ue_ctx->cucp_ue_id);
+		bearer_modify_failure(req->cucp_ue_id,req->cuup_ue_id,FAIL_CAUSE_RNL_UNKNOWN_CU_ID_PAIR,rsp);
 		return PFM_FAILED;
 	}
 	
@@ -119,7 +127,7 @@ e1ap_bearer_ctx_modify(e1ap_bearer_ctx_modify_req_t *req,
 		if (j == ue_ctx->pdus_count)
 		{
 			pfm_log_msg(PFM_LOG_ERR,"pdus_modify_req not in pdus_list");
-			pdus_modify_fail_rsp_create(&(req->pdus_modify_list[i]),modify_fail_rsp,1);
+			pdus_modify_fail_rsp_create(&(req->pdus_modify_list[i]),modify_fail_rsp,FAIL_CAUSE_RNL_UNKNOWN_PDUS_ID);
 			rsp->pdus_modify_fail_count++;
 			continue;	
 		}
@@ -147,6 +155,7 @@ e1ap_bearer_ctx_modify(e1ap_bearer_ctx_modify_req_t *req,
 	if (ret == PFM_FAILED)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"attempt to modify ue that doesn't exist");
+		bearer_modify_failure(req->cucp_ue_id,req->cuup_ue_id,FAIL_CAUSE_RNL_UNSPECIFIED,rsp);
 		return PFM_FAILED;
 	}
 	return PFM_SUCCESS;

@@ -3,6 +3,41 @@
 
 #include "cuup.h"
 
+// BEARER CONTEXT SETUP RESPONSE FAILURE RESPONSE. sec 9.3.1.2 of #3GPP TS 38.463
+typedef enum
+{
+	// First 2 bytes signify the class of the error 
+	// Last 2 bytes the exact cause
+	// Radio network layer cause
+	FAIL_CAUSE_RNL_UNSPECIFIED		= 0x00000001,	// Unspecified Radio network layer cause
+	FAIL_CAUSE_RNL_UNKNOWN_CUCP_ID 		= 0x00000002,	// Unknown or already allocated gNB-CU-CP UE E1AP ID
+	FAIL_CAUSE_RNL_UNKNOWN_CUUP_ID 		= 0x00000003,	// Unknown or already allocated gNB-CU-UP UE E1AP ID
+	FAIL_CAUSE_RNL_UNKNOWN_CU_ID_PAIR	= 0x00000004,	// Unknown or inconsistent pair or UE ID's
+	FAIL_CAUSE_RNL_MULTIPLE_PDUS_ID		= 0x00000005,	// Multiple PDUS session id instances
+	FAIL_CAUSE_RNL_UNKNOWN_PDUS_ID		= 0x00000006,	// Unknown PDUS id
+	FAIL_CAUSE_RNL_MULTIPLE_DRB_ID		= 0x00000007,	// Multiple DRB session id instances
+	FAIL_CAUSE_RNL_UNKNOWN_DRB_ID		= 0x00000008, 	// Unknown DRB id
+	FAIL_CAUSE_RNL_PROCEDURE_CANCELLED	= 0x00000009,	// Procedure cancelled
+	FAIL_CAUSE_RNL_RESOURCE_UNAVAIL		= 0x0000000A,	// The Radio resource is unavailable
+	FAIL_CAUSE_RNL_NORMAL_RELEASE		= 0x0000000B,	// Failure caused due to normal release
+	
+	// Transport layer cause
+	FAIL_CAUSE_TL_UNSPECIFED		= 0x00010000, 	// Unspecified Transport layer cause
+	FAIL_CAUSE_TL_RESOURCE_UNAVAIL		= 0x00010001,	// Transport resource unavailable 
+
+	// Protocol cause
+	FAIL_CAUSE_P_UNSPECIFIED		= 0x00020000,	// Unspecified Protocol error
+	FAIL_CAUSE_P_TRANSFER_SYNTAX_ERROR	= 0x00020001,	// Transfer syntax error 
+	FAIL_CAUSE_P_ABSTRACT_SYNTAX_ERROR	= 0x00020002,	// Abstract syntax error 
+
+	// Miscellanous cause
+
+	FAIL_CAUSE_MISC_UNSPECIFIED		= 0x00030000,	// Unspecified Miscellaneous cause 
+	FAIL_CAUSE_MISC_CP_OVERLOAD		= 0x00030001,	// Control processing overload
+	FAIL_CAUSE_MISC_UE_UNAVAILABLE		= 0x00030002,	// Not enough user plane processing resources
+	FAIL_CAUSER_MISC_HW_FAILURE		= 0x00030003,	// Hardware failure
+} e1ap_fail_cause_t;
+
 // BEARER CONTEXT SETUP REQUEST sec 9.2.2.1 of 3GPP TS 38.463
 // PDU Session Resource to Setup List 9.3.3.2
 // DRB to Setup Item
@@ -113,39 +148,5 @@ typedef struct
 	e1ap_fail_cause_t cause;                  // Cause 9.3.1.2
 } pdus_setup_fail_rsp_info_t;
 
-// BEARER CONTEXT SETUP RESPONSE FAILURE RESPONSE. sec 9.3.1.2 of #3GPP TS 38.463
-typedef enum
-{
-	// First 2 bytes signify the class of the error 
-	// Last 2 bytes the exact cause
-	// Radio network layer cause
-	FAIL_CAUSE_RNL_UNSPECIFIED		= 0x00000001,	// Unspecified Radio network layer cause
-	FAIL_CAUSE_RNL_UNKNOWN_CUCP_ID 		= 0x00000002,	// Unknown or already allocated gNB-CU-CP UE E1AP ID
-	FAIL_CAUSE_RNL_UNKNOWN_CUUP_ID 		= 0x00000003,	// Unknown or already allocated gNB-CU-UP UE E1AP ID
-	FAIL_CAUSE_RNL_UNKNOWN_CU_ID_PAIR	= 0x00000004,	// Unknown or inconsistent pair or UE ID's
-	FAIL_CAUSE_RNL_MULTIPLE_PDUS_ID		= 0x00000005,	// Multiple PDUS session id instances
-	FAIL_CAUSE_RNL_UNKNOWN_PDUS_ID		= 0x00000006,	// Unknown PDUS id
-	FAIL_CAUSE_RNL_MULTIPLE DRB_ID		= 0x00000007,	// Multiple DRB session id instances
-	FAIL_CAUSE_RNL_UNKNOWN_DRB_ID		= 0x00000008, 	// Unknown DRB id
-	FAIL_CAUSE_RNL_PROCEDURE_CANCELLED	= 0x00000009,	// Procedure cancelled
-	FAIL_CAUSE_RNL_RESOURCE_UNAVAIL		= 0x0000000A,	// The Radio resource is unavailable
-	FAIL_CAUSE_RNL_NORMAL_RELEASE		= 0x0000000B,	// Failure caused due to normal release
-	
-	// Transport layer cause
-	FAIL_CAUSE_TL_UNSPECIFED		= 0x00010000, 	// Unspecified Transport layer cause
-	FAIL_CAUSE_TL_RESOURCE_UNAVAIL		= 0x00010001,	// Transport resource unavailable 
-
-	// Protocol cause
-	FAIL_CAUSE_P_UNSPECIFIED		= 0x00020000,	// Unspecified Protocol error
-	FAIL_CAUSE_P_TRANSFER_SYNTAX_ERROR	= 0x00020001,	// Transfer syntax error 
-	FAIL_CAUSE_P_ABSTRACT_SYNTAX_ERROR	= 0x00020002,	// Abstract syntax error 
-
-	// Miscellanous cause
-
-	FAIL_CAUSE_MISC_UNSPECIFIED		= 0x00030000,	// Unspecified Miscellaneous cause 
-	FAIL_CAUSE_MISC_CP_OVERLOAD		= 0x00030001,	// Control processing overload
-	FAIL_CAUSE_MISC_UE_UNAVAILABLE		= 0x00030002,	// Not enough user plane processing resources
-	FAIL_CAUSER_MISC_HW_FAILURE		= 0x00030003,	// Hardware failure
-}e1ap_fail_cause_t;
 
 #endif

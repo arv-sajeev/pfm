@@ -42,7 +42,7 @@ e1ap_bearer_ctx_setup(e1ap_bearer_ctx_setup_req_t *req,
 	if (ret ==  PFM_FAILED)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating ue_id");
-		e1ap_bearer_setup_fail(req->cucp_ue_id,MAX_UE_COUNT,1,rsp);
+		e1ap_bearer_setup_fail(req->cucp_ue_id,MAX_UE_COUNT,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL,rsp);
 		return PFM_FAILED;
 	}
 
@@ -52,7 +52,7 @@ e1ap_bearer_ctx_setup(e1ap_bearer_ctx_setup_req_t *req,
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating ue_ctx");
 		ue_ctx_id_free(&ue_id);
-		e1ap_bearer_setup_fail(req->cucp_ue_id,MAX_UE_COUNT,1,rsp);
+		e1ap_bearer_setup_fail(req->cucp_ue_id,MAX_UE_COUNT,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL,rsp);
 		return PFM_FAILED;
 	}
 	
@@ -104,7 +104,7 @@ e1ap_bearer_ctx_setup(e1ap_bearer_ctx_setup_req_t *req,
 			     ue_id);
 		ue_ctx_remove(ue_id);
 		ue_ctx_commit(ue_ctx);
-		e1ap_bearer_setup_fail(req->cucp_ue_id,ue_ctx->cucp_ue_id,1,rsp);
+		e1ap_bearer_setup_fail(req->cucp_ue_id,ue_ctx->cucp_ue_id,FAIL_CAUSE_RNL_UNSPECIFIED,rsp);
 		return PFM_FAILED;
 	}
 	ret = ue_ctx_commit(ue_ctx);
@@ -114,7 +114,7 @@ e1ap_bearer_ctx_setup(e1ap_bearer_ctx_setup_req_t *req,
 				ue_id);
 		ue_ctx_remove(ue_id);
 		ue_ctx_commit(ue_ctx);
-		e1ap_bearer_setup_fail(req->cucp_ue_id,ue_id,1,rsp);
+		e1ap_bearer_setup_fail(req->cucp_ue_id,ue_id,FAIL_CAUSE_RNL_UNSPECIFIED,rsp);
 	}
 	return ret;	
 }
