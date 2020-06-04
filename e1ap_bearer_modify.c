@@ -16,30 +16,17 @@
 	- make changes to an existing pdus_session 
 */
 static void
-bearer_modify_failure(e1ap_bearer_ctx_modify_req_t *req
-	 	      ,e1ap_bearer_ctx_modify_rsp_t *rsp
-		      ,uint32_t cause)
+bearer_modify_failure(uint32_t cucp_ue_id,uint32_t cuup_ue_id,uint32_t cause,e1ap_bearer_ctx_modify_rsp_t* rsp)
 {
 	pfm_log_msg(PFM_LOG_ERR,"Error modifying ue_ctx for bearer");
+	
 	rsp->cause	= cause;
-	rsp->cucp_ue_id = req->cucp_ue_id;
-	rsp->cuup_ue_id	= req->cuup_ue_id;
+	rsp->cucp_ue_id = cucp_ue_id;
+	rsp->cuup_ue_id	= cuup_ue_id;
 
 	rsp->pdus_setup_succ_count = 0;
-	rsp->pdus_setup_fail_count = req->pdus_setup_count;
-	
 	rsp->pdus_modify_succ_count = 0;
-	rsp->pdus_modify_fail_count = req->pdus_modify_count;
 	
-	for (int i = 0;i < req->pdus_setup_count;i++)
-	{
-		pdus_setup_fail_rsp_create(&(req->pdus_setup_list[i]),&(rsp->pdus_setup_fail_list[i]),1);
-	}
-	
-	for (int i = 0;i < req->pdus_modify_count;i++)
-	{
-		pdus_modify_fail_rsp_create(&(req->pdus_modify_list[i]),&(rsp->pdus_modify_fail_list[i]),1);
-	}
 	return;
 }
 
@@ -62,7 +49,7 @@ e1ap_bearer_ctx_modify(e1ap_bearer_ctx_modify_req_t *req,
 	if (ue_ctx == NULL)
 	{	
 		pfm_log_msg(PFM_LOG_ERR,"attempt to modify ue that doesn't exist");
-		bearer_modify_failure(req,rsp,1);
+		bearer_modify_failure(req->cucp_ue_id,req->cuup_ue_id,1,rsp);
 		return PFM_FAILED;
 	}
 	
@@ -137,7 +124,6 @@ e1ap_bearer_ctx_modify(e1ap_bearer_ctx_modify_req_t *req,
 			continue;	
 		}
 		rsp->pdus_modify_succ_count++;
-
 	}
 	
 	// Service the setup requests
@@ -161,7 +147,6 @@ e1ap_bearer_ctx_modify(e1ap_bearer_ctx_modify_req_t *req,
 	if (ret == PFM_FAILED)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"attempt to modify ue that doesn't exist");
-		bearer_modify_failure(req,rsp,1);
 		return PFM_FAILED;
 	}
 	return PFM_SUCCESS;

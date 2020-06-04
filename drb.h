@@ -66,7 +66,7 @@ drb_setup(ue_ctx_t* ue_ctx,
 void 
 drb_setup_fail_rsp_create(drb_setup_req_info_t* req,
 			  drb_setup_fail_rsp_info_t *fail_rsp,
-			  uint32_t cause);
+			  e1ap_fail_cause_t cause);
 
 /************************
 	drb_modify
@@ -125,6 +125,6 @@ drb_modify(ue_ctx_t* ue_ctx,
 void
 drb_modify_fail_rsp_create(drb_modify_req_info_t *req,
 			    drb_setup_fail_rsp_info_t *rsp,
-			    uint32_t cause);
+			    e1ap_fail_cause_t cause);
 
 #endif

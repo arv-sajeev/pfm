@@ -41,7 +41,7 @@ drb_setup(ue_ctx_t* ue_ctx,
 	tunnel_t* tunnel_entry;
 	
 	//Assign a tunnel key with drb_dl_ip_addr
-	ret = tunnel_key_allocate(&tunnel_key,TUNNEL_TYPE_DRB,req);
+	ret  = tunnel_key_alloc(req->drb_dl_ip_addr,TUNNEL_TYPE_DRB,&tunnel_key);
 	if (ret == PFM_FAILED)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_key");

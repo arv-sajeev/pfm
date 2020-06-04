@@ -42,7 +42,7 @@ typedef struct
 typedef struct 
 {
 	uint8_t pdus_id;
-	uint32_t cause;
+	e1ap_fail_cause_t cause;
 } pdus_remove_req_info_t;
 
 
@@ -102,7 +102,7 @@ typedef struct
 {
 	uint32_t	cucp_ue_id;
 	uint32_t	cuup_ue_id;
-	uint32_t	cause;	// set to 0 is success
+	e1ap_fail_cause_t	cause;	// set to 0 is success
 	uint8_t pdus_setup_succ_count;
 	uint8_t pdus_setup_fail_count;
 	uint8_t pdus_modify_succ_count;

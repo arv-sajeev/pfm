@@ -67,7 +67,7 @@ pdus_setup(ue_ctx_t* ue_ctx,
 void 
 pdus_setup_fail_rsp_create(pdus_setup_req_info_t* req,
 			   pdus_setup_fail_rsp_info_t *fail_rsp,
-			   uint32_t cause);
+			   e1ap_fail_cause_t cause);
 
 /************************
 	pdus_modify
@@ -127,5 +127,5 @@ pdus_modify(ue_ctx_t* ue_ctx,
 void
 pdus_modify_fail_rsp_create(pdus_modify_req_info_t *req,
 			    pdus_modify_fail_rsp_info_t *rsp,
-			    uint32_t cause);
+			    e1ap_fail_cause_t cause);
 #endif

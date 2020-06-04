@@ -24,7 +24,7 @@ pdus_setup_succ_rsp_create(tunnel_t *tunnel_entry,pdus_setup_succ_rsp_info_t *su
 void
 pdus_setup_fail_rsp_create(pdus_setup_req_info_t* req,
 			   pdus_setup_fail_rsp_info_t* fail_rsp,
-			   uint32_t cause)
+			   e1ap_fail_cause_t cause)
 {
 	fail_rsp->pdus_id = req->pdus_id;
 	// TD how to assign cause
@@ -47,7 +47,7 @@ pdus_setup(ue_ctx_t* ue_ctx,
 	drb_setup_fail_rsp_info_t* drb_fail_rsp;
 	
 	// Assign a tunnel key with pdus_ul_ip_addr
-	ret = tunnel_key_allocate(&tunnel_key,TUNNEL_TYPE_PDUS,req);
+	ret = tunnel_key_alloc(req->pdus_ul_ip_addr,TUNNEL_TYPE_PDUS,&tunnel_key);
 	if (ret == PFM_FAILED)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_key");
@@ -63,6 +63,7 @@ pdus_setup(ue_ctx_t* ue_ctx,
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_entry");
 		// TD assign cause properly
+		tunnel_key_free(&tunnel_key);
 		pdus_setup_fail_rsp_create(req,fail_rsp,1);
 		return PFM_FAILED;
 	}
@@ -94,6 +95,18 @@ pdus_setup(ue_ctx_t* ue_ctx,
 		}
 		succ_rsp->drb_setup_succ_count++;
 	}
+	// If all drb requests fail consider the pdu request a fail
+	if (succ_rsp->drb_setup_fail_count == req->drb_count)
+	{
+		pfm_log_msg(PFM_LOG_ERR,
+			"all drb_req in pdus_req failed pdus id :: %s:",
+				req->pdus_id);
+		tunnel_remove(&tunnel_key);
+		tunnel_commit(tunnel_entry);
+		
+		pdus_setup_fail_rsp_create(req,fail_rsp,1);
+		return PFM_FAILED;
+	}
 
 	// Assign tunnel_entry to the next vacant spot
 	ue_ctx->pdus_tunnel_list[ue_ctx->pdus_count] = tunnel_entry;
@@ -121,7 +134,7 @@ pdus_modify_succ_rsp_create(tunnel_t* tunnel_entry,pdus_modify_succ_rsp_info_t* 
 void 
 pdus_modify_fail_rsp_create(pdus_modify_req_info_t* req,
 			    pdus_modify_fail_rsp_info_t* fail_rsp,
-			    uint32_t cause)
+			    e1ap_fail_cause_t cause)
 {
 	fail_rsp->pdus_id = req->pdus_id;
 	// TD how to assign cause
@@ -223,8 +236,11 @@ pdus_modify(ue_ctx_t* ue_ctx,
 
 	for (i = 0;i < req->drb_setup_count;i++)
 	{
-		drb_succ_rsp = &(succ_rsp->drb_setup_succ_list[succ_rsp->drb_setup_succ_count]);
-		drb_fail_rsp = &(succ_rsp->drb_setup_fail_list[succ_rsp->drb_setup_fail_count]);
+		drb_succ_rsp = 
+		&(succ_rsp->drb_setup_succ_list[succ_rsp->drb_setup_succ_count]);
+	
+		drb_fail_rsp = 
+		&(succ_rsp->drb_setup_fail_list[succ_rsp->drb_setup_fail_count]);
 		ret = drb_setup(ue_ctx,&(req->drb_setup_list[i]),drb_succ_rsp,drb_fail_rsp);
 		
 		// If failed log and increment the drb_setup_fail_count
