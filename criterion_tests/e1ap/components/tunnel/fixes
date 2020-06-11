@@ -1,2 +1,4 @@
 1. Change lookup check value to >= than =
 2. Tunnel get if condition needs brackets
+3. Change tunnel_hash_table key size
+4. Fixes in tunnel id freeing and generation 

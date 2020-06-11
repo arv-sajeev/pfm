@@ -55,7 +55,7 @@ id_alloc(uint32_t *id)
 	prev =last_allocated_tunnel_id++;
 
 	// find an unallocated tunnel id
-	while ((rte_hash_lookup_data(tunnel_id_hash_g,&last_allocated_tunnel_id,NULL) > 0)
+	while ((rte_hash_lookup_data(tunnel_id_hash_g,&last_allocated_tunnel_id,NULL) >= 0)
 		&& (last_allocated_tunnel_id != prev))
 		last_allocated_tunnel_id = (last_allocated_tunnel_id+1)%MAX_TUNNEL_COUNT;
 	// if completely wrap around out of ids
@@ -86,9 +86,11 @@ tunnel_key_free(tunnel_key_t* tunnel_key)
 		pfm_log_msg(PFM_LOG_ERR,"tunnel id hash uninitialized");
 		return PFM_FAILED;
 	}
-
-	if (rte_hash_lookup_data(tunnel_id_hash_g,&(tunnel_key->te_id),NULL) > 0)
+	// Make sure id exists
+	ret = rte_hash_lookup(tunnel_id_hash_g,&(tunnel_key->te_id)) >= 0;
+	if (ret >= 0)
 	{
+		// Clear id
 		ret = rte_hash_del_key(tunnel_id_hash_g,&(tunnel_key->te_id));
 		if (ret != 0)
 		{
@@ -98,10 +100,13 @@ tunnel_key_free(tunnel_key_t* tunnel_key)
 		return PFM_SUCCESS;
 	}
 
-	pfm_log_msg(PFM_LOG_ALERT,"trying to free unallocated id");
+	if (ret == -ENOENT)
+		pfm_log_msg(PFM_LOG_ALERT,"trying to free unallocated id");
+	else if (ret == -EINVAL)
+		pfm_log_rte_err(PFM_LOG_ALERT,"Invalid arguments for rte_hash_lookup()");
+	else
+		pfm_log_msg(PFM_LOG_ALERT,"Error in rte_hash_lookup()");
 	return PFM_FAILED;
-
-
 }
 
 pfm_retval_t
@@ -184,7 +189,7 @@ tunnel_table_init(void)
 		.name			=	PFM_TUNNEL_HASH_NAME,
 		.entries 		= 	MAX_TUNNEL_COUNT,
 		.reserved		= 	0,
-		.key_len		=	sizeof(tunnel_t),
+		.key_len		=	sizeof(tunnel_key_t),
 		.hash_func		= 	rte_jhash,
 		.hash_func_init_val	=	0,
 		.socket_id		=	(int)rte_socket_id()
@@ -222,18 +227,27 @@ tunnel_get(tunnel_key_t *key)
 	
 	// If hash hits return value 
 	if (ret == 0)	
+	{
 		pfm_trace_msg("found tunnel entry");
 		return tunnel_entry;
+	}
 	
 	// Log reason for miss
 	if (ret < 0)	
 	{
 		if ( ret ==  -ENOENT)  
+		{
 			pfm_trace_msg("tunnel_entry not found"); 
-		pfm_log_msg(PFM_LOG_ERR,"invalid arguments for tunnel_get ip_addr :%s"
+		}
+		else if (ret == -EINVAL)
+		{
+			pfm_log_msg(PFM_LOG_ERR,"invalid arguments for tunnel_get ip_addr :%s"
 						"te_id :%u ",
 						pfm_ip2str(key->ip_addr,ip_str),
 						key->te_id);
+		}
+		else
+			pfm_log_msg(PFM_LOG_ERR,"Error in rte_hash_lookup_data()");
 	}
 	return NULL;
 }
@@ -249,7 +263,7 @@ tunnel_add(tunnel_key_t *key)
 	if (tunnel_table_up_g == PFM_FALSE)	
 	{
 		ret = tunnel_table_init();
-		if (ret != 0)	
+		if (ret != PFM_SUCCESS)	
 		{
 			pfm_log_msg(PFM_LOG_WARNING,"Failed to init tunnel_table ");
 			return NULL;
@@ -271,8 +285,11 @@ tunnel_add(tunnel_key_t *key)
 	// If no free entries return NULL
 	if (tunnel_entry == NULL)
 		pfm_log_msg(PFM_LOG_ERR,"tunnel_table is full");
+	else 
+		pfm_trace_msg("Allocated tunnel entry");
 	return tunnel_entry;
 }
+
 
 pfm_retval_t     
 tunnel_remove(tunnel_key_t *key)
@@ -294,7 +311,7 @@ tunnel_remove(tunnel_key_t *key)
 	{
 		if ( ret ==  -ENOENT)  
 		{
-			pfm_log_msg(PFM_LOG_ERR,"entry not in tunnel_table");						
+			pfm_log_msg(PFM_LOG_ERR,"entry not in tunnel_table");		
 			return PFM_NOT_FOUND;
 		}
 		pfm_log_rte_err(PFM_LOG_ERR,"rte_hash_lookup_data() failed"
@@ -304,7 +321,7 @@ tunnel_remove(tunnel_key_t *key)
 							key->te_id);
 		return PFM_FAILED;	
 	}
-
+	pfm_trace_msg("Marked entry as unused in tunnel_remove");
 	entry->is_row_used = PFM_FALSE;
 	return PFM_SUCCESS;
 }
@@ -320,6 +337,7 @@ tunnel_modify(tunnel_key_t *key)
 		return NULL;
 	}
 	// Check if an instance with this key already exists
+
 	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,(void **)&tunnel_entry);
 
 	if (ret != 0)	
@@ -334,6 +352,8 @@ tunnel_modify(tunnel_key_t *key)
 	tunnel_entry = tunnel_alloc(key);
 	if (tunnel_entry ==  NULL)
 		pfm_log_msg(PFM_LOG_ERR,"tunnel_table is full");
+	else
+		pfm_trace_msg("new tunnel_entry to modify");
 	return tunnel_entry;
 }
 
@@ -416,7 +436,6 @@ tunnel_commit(tunnel_t* nt)
 		return PFM_FAILED;
 	}
 	return PFM_SUCCESS;
-	
 }
 
 void   
