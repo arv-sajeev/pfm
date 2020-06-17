@@ -7,7 +7,6 @@
 #include "drb.h"
 #include "e1ap_comm.h"
 #include "e1ap_bearer_setup.h"
-#include "e1ap_bearer_modify.h"
 
 static void 
 drb_setup_succ_rsp_create(tunnel_t* tunnel_entry,drb_setup_succ_rsp_info_t* rsp)
@@ -24,6 +23,7 @@ drb_setup_fail_rsp_create(drb_setup_req_info_t *req,
 		    e1ap_fail_cause_t cause)
 {
 	rsp->drb_id = req->drb_id;
+	// TD find way to assign cause 
 	rsp->cause  = cause;
 }
 
@@ -54,6 +54,7 @@ drb_setup(ue_ctx_t* ue_ctx,
 	if (tunnel_entry == NULL)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_entry");
+		// TD assign cause properly
 		drb_setup_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL);
 		return PFM_FAILED;
 	}
@@ -76,71 +77,5 @@ drb_setup(ue_ctx_t* ue_ctx,
 //----------------------------------modify------------------------------
 
 
-static void 
-drb_modify_succ_rsp_create(tunnel_t* tunnel_entry,drb_setup_succ_rsp_info_t* rsp)
-{
-	rsp->drb_id		= tunnel_entry->drb_info.drb_id;
-	rsp->drb_ul_ip_addr	= tunnel_entry->key.ip_addr;
-	rsp->drb_ul_teid	= tunnel_entry->key.te_id;
-	return;
-}
 
-void 
-drb_modify_fail_rsp_create(drb_modify_req_info_t *req,
-	                   drb_setup_fail_rsp_info_t *rsp,
-		    	   e1ap_fail_cause_t cause)
-{
-	rsp->drb_id = req->drb_id;
-	rsp->cause  = cause;
-}
-
-pfm_retval_t
-drb_modify(ue_ctx_t* ue_ctx,
-	   drb_modify_req_info_t* req,
-	   drb_setup_succ_rsp_info_t* succ_rsp,
-	   drb_setup_fail_rsp_info_t* fail_rsp,
-	   uint32_t idx)
-{
-	tunnel_t *drb_entry,*old_entry;
-	old_entry = ue_ctx->drb_tunnel_list[idx];
-	
-	drb_entry = tunnel_modify(&(old_entry->key));
-	
-	if (drb_entry == NULL)
-	{
-		pfm_log_msg(PFM_LOG_ERR,"tunnel_modify on tunnel that doesn't exist");
-		// TD cause
-		drb_modify_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_UNKNOWN_DRB_ID);
-		return PFM_FAILED;
-	}
-
-	// TD do stuff to the drb
-	memcpy(drb_entry,old_entry,sizeof(tunnel_t));
-	
-	// Create a drb_modify_succ_rsp
-	drb_modify_succ_rsp_create(drb_entry,succ_rsp);
-
-	// Assign the new drb to the old one
-	ue_ctx->drb_tunnel_list[idx] = drb_entry;
-	return PFM_SUCCESS;
-}
-
-pfm_retval_t
-drb_remove(tunnel_key_t* tunnel_key)
-{
-	return tunnel_remove(tunnel_key);
-}
-
-
-pfm_retval_t 
-drb_commit(tunnel_t* nt)
-{
-	return tunnel_commit(nt);
-}
-
-pfm_retval_t
-drb_rollback(tunnel_t *nt)
-{
-	return tunnel_rollback(nt);
-}
 

@@ -4,8 +4,6 @@
 #include "cuup.h"
 #include "tunnel.h"
 #include "ue_ctx.h"
-#include "pdus.h"
-#include "drb.h"
 #include <string.h>
 
 #define PFM_UE_CTX_TABLE_NAME "UE_CTX_TABLE_HASH"
@@ -16,8 +14,102 @@ static uint32_t last_allocated_slot_g = 0;
 static struct rte_hash* ue_ctx_hashtable_g;
 static pfm_bool_t ue_ctx_table_up_g = PFM_FALSE;
 
-static uint32_t last_assigned_id_g = 0;
 
+static pfm_bool_t ue_id_hash_table_up_g = PFM_FALSE; 
+static struct rte_hash* ue_id_hash_table_g;
+
+pfm_retval_t
+ue_ctx_id_alloc(uint32_t *ue_id)
+{
+	static uint32_t last_allocated_ue_id = 0,prev;
+	if (ue_id_hash_table_up_g ==  PFM_FALSE)	
+	{
+		pfm_trace_msg("initializing tunnel_table");
+		// initialize the hash table
+		struct rte_hash_parameters hash_params = 
+		{
+			.name			=	PFM_UE_IDS_TABLE_NAME,
+			.entries 		= 	MAX_UE_COUNT,
+			.reserved		= 	0,
+			.key_len		=	sizeof(uint32_t),
+			.hash_func		= 	rte_jhash,
+			.hash_func_init_val	=	0,
+			.socket_id		=	(int)rte_socket_id()
+		};
+		ue_id_hash_table_g	=	rte_hash_create(&hash_params);
+		if (ue_id_hash_table_g == NULL)	
+		{
+			pfm_log_rte_err(PFM_LOG_ALERT,"error during rte_hash_create()");
+			return PFM_FAILED;
+		}
+		ue_id_hash_table_up_g = PFM_TRUE;
+	}
+	// keep track of where we started to know when to stop 
+	prev =last_allocated_ue_id++;
+
+	// find an unallocated tunnel id
+	while ((rte_hash_lookup_data(ue_id_hash_table_g,&last_allocated_ue_id,NULL) > 0)
+		&& (last_allocated_ue_id != prev))
+		last_allocated_ue_id = (last_allocated_ue_id+1)%MAX_TUNNEL_COUNT;
+	// if completely wrap around out of ids
+	if (prev == last_allocated_ue_id)
+	{
+		pfm_log_msg(PFM_LOG_ALERT,"exhausted tunnel ids");
+		return PFM_FAILED;
+	}
+
+	 if(rte_hash_add_key(ue_id_hash_table_g,&last_allocated_ue_id) < 0)
+	{
+		pfm_log_msg(PFM_LOG_ALERT,"exhausted tunnel ids");
+		return PFM_FAILED;
+	}
+	// allocate tunnel id
+	*ue_id = last_allocated_ue_id;
+	return PFM_SUCCESS;
+}
+
+pfm_retval_t
+ue_ctx_id_free(uint32_t *ue_id)
+{
+	if (ue_id_hash_table_up_g != PFM_TRUE)
+	{
+		pfm_log_msg(PFM_LOG_ERR,"ue_ctx id hash uninitialized");
+		return PFM_FAILED;
+	}
+		
+	int ret;
+	if (rte_hash_lookup_data(ue_id_hash_table_g,ue_id,NULL) > 0)
+	{
+		ret = rte_hash_del_key(ue_id_hash_table_g,ue_id);
+		if (ret != 0)
+		{
+			pfm_log_rte_err(PFM_LOG_ERR,"rte_hash_del_key failed");
+			return PFM_FAILED;
+		}
+		return PFM_SUCCESS;
+	}
+	pfm_log_msg(PFM_LOG_ALERT,"attempt to free unallocated id");
+	return PFM_FAILED;
+}
+static ue_ctx_t*
+ue_ctx_alloc(uint32_t ue_id)
+{
+	uint32_t i;
+	for ( i = last_allocated_slot_g +1;i != last_allocated_slot_g;i++)  
+	{	
+		if ( i >=  MAX_UE_COUNT)
+			i = 0;
+		if (!(ue_ctx_table_g[i].is_row_used))
+		{
+			ue_ctx_table_g[i].cuup_ue_id 	= ue_id;
+			ue_ctx_table_g[i].is_row_used 	= PFM_TRUE;
+			last_allocated_slot_g = i;
+			return  &(ue_ctx_table_g[i]);
+		}
+	}
+	pfm_log_msg(PFM_LOG_ALERT,"ue_ctx_table is full");
+	return NULL;
+}
 
 static pfm_retval_t 
 ue_ctx_table_init(void)	
@@ -49,67 +141,6 @@ ue_ctx_table_init(void)
 	pfm_trace_msg("ue_ctx_table initialized");
 	return PFM_SUCCESS;
 }
-
-pfm_retval_t
-ue_ctx_id_alloc(uint32_t *ue_id)
-{
-	pfm_retval_t ret_val;
-	uint32_t i;
-	int ret;
-	if (ue_ctx_table_up_g != PFM_TRUE)
-	{
-		ret_val = ue_ctx_table_init();
-		if (ret_val != PFM_FAILED)	
-		{
-			pfm_log_msg(PFM_LOG_WARNING,
-				    "Failed to init ue_ctx_table ");
-			return PFM_FAILED;
-		}
-		pfm_trace_msg("Initialised ue_ctx_table");
-	}
-
-	for (i = last_assigned_id_g + 1;i != last_assigned_id_g;i++)
-	{
-		if (i >= MAX_UE_COUNT)
-			i = 0;
-		ret = rte_hash_lookup(ue_ctx_hashtable_g,&i);
-		if (ret == -ENOENT)
-		{
-			pfm_trace_msg("Assigning ue id :: %d",i);
-			*ue_id = i;
-			return PFM_SUCCESS;
-		}
-
-		if (ret == -EINVAL)
-		{
-			pfm_log_msg(PFM_LOG_ALERT,"Error in rte_hash_lookup()");
-			return PFM_FAILED;
-		}
-	}
-	pfm_log_msg(PFM_LOG_ERR,"no free ue id available");
-	return PFM_FAILED;
-}
-
-static ue_ctx_t*
-ue_ctx_alloc(uint32_t ue_id)
-{
-	uint32_t i;
-	for ( i = last_allocated_slot_g +1;i != last_allocated_slot_g;i++)  
-	{	
-		if ( i >=  MAX_UE_COUNT)
-			i = 0;
-		if (ue_ctx_table_g[i].is_row_used != PFM_TRUE)
-		{
-			ue_ctx_table_g[i].cuup_ue_id 	= ue_id;
-			ue_ctx_table_g[i].is_row_used 	= PFM_TRUE;
-			last_allocated_slot_g = i;
-			return  &(ue_ctx_table_g[i]);
-		}
-	}
-	pfm_log_msg(PFM_LOG_ALERT,"ue_ctx_table is full");
-	return NULL;
-}
-
 
 
 
@@ -174,9 +205,9 @@ ue_ctx_remove(uint32_t ue_id)
 	
 	// Clear tunnel lists
 	for (i = 0;i < entry->pdus_count ; i++)
-		 pdus_remove(&((entry->pdus_tunnel_list[i])->key));
+		 tunnel_remove(&((entry->pdus_tunnel_list[i])->key));
 	for (i = 0;i < entry->drb_count ; i++)
-		 drb_remove(&((entry->drb_tunnel_list[i])->key));
+		 tunnel_remove(&((entry->drb_tunnel_list[i])->key));
 	return PFM_SUCCESS;
 }
 
@@ -194,7 +225,7 @@ ue_ctx_modify(uint32_t ue_id)
 	// Check if an instance with this ue_id already exists
 	ret = rte_hash_lookup_data(ue_ctx_hashtable_g,&ue_id,(void **)&entry);
 	// If it doesn't exist it is an invalid request
-	if (ret < 0)	
+	if (ret != 0)	
 	{
 		if (ret == -ENOENT)
 			pfm_log_msg(PFM_LOG_ERR,"Attempt to modify %d that doesn't exist",
@@ -259,7 +290,7 @@ ue_ctx_commit(ue_ctx_t *new_ctx)
 	for (i = 0;i < new_ctx->drb_count;i++)	
 	{
 		tunnel_entry 	= new_ctx->drb_tunnel_list[i];
-		ret_val		= drb_commit(tunnel_entry);
+		ret		= tunnel_commit(tunnel_entry);
 	// If the tunnel_remove() was called on tunnel don't include in drb_tunnel_list
 		if (tunnel_entry->is_row_used != PFM_TRUE)
 			new_ctx->drb_tunnel_list[i] = NULL;
@@ -268,7 +299,7 @@ ue_ctx_commit(ue_ctx_t *new_ctx)
 	// Pack the drb_tunnel_list removing the ones assigned as NULL
 	for (i = 0,j = 0;i < new_ctx->drb_count;i++)
 	{
-		if (new_ctx->drb_tunnel_list[i] !=  NULL)
+		if (new_ctx->drb_tunnel_list[i] ==  NULL)
 		{
 			new_ctx->drb_tunnel_list[j] = new_ctx->drb_tunnel_list[i];
 			j++;
@@ -280,7 +311,7 @@ ue_ctx_commit(ue_ctx_t *new_ctx)
 	for (i = 0;i < new_ctx->pdus_count;i++)
 	{
 		tunnel_entry	= new_ctx->pdus_tunnel_list[i];
-		ret_val		= pdus_commit(tunnel_entry);
+		ret		= tunnel_commit(tunnel_entry);
 
 		if (tunnel_entry->is_row_used != PFM_TRUE)
 			new_ctx->pdus_tunnel_list[i] = NULL;
@@ -289,7 +320,7 @@ ue_ctx_commit(ue_ctx_t *new_ctx)
 	// Pack the pdus_tunnel_list
 	for (i = 0,j = 0;i < new_ctx->pdus_count;i++)
 	{
-		if (new_ctx->drb_tunnel_list[i] !=  NULL)
+		if (new_ctx->drb_tunnel_list[i])
 		{
 			new_ctx->pdus_tunnel_list[j] = new_ctx->drb_tunnel_list[i];
 			j++;
@@ -332,6 +363,13 @@ ue_ctx_commit(ue_ctx_t *new_ctx)
 				if (ret != 0)
 				{
 					pfm_log_rte_err(PFM_LOG_ERR,"rte_hash_del_key fail");
+					return PFM_FAILED;
+				}
+
+				ret_val = ue_ctx_id_free(&(new_ctx->cuup_ue_id));
+				if (ret_val != PFM_SUCCESS)
+				{
+					pfm_log_rte_err(PFM_LOG_ERR,"ue_ctx_id_free() failed");
 					return PFM_FAILED;
 				}
 				return PFM_SUCCESS;
@@ -385,86 +423,6 @@ ue_ctx_get(uint32_t ue_id)
 	}	
 	return NULL;
 }
-
-pfm_retval_t
-ue_ctx_rollback(ue_ctx_t *ue_ctx)
-{
-	int ret;
-	uint32_t i;
-	pfm_retval_t ret_val;
-	ue_ctx_t *entry;
-
-	if (ue_ctx_table_up_g != PFM_TRUE)
-	{
-		pfm_log_msg(PFM_LOG_ERR,"UE CTX table uninitialized");
-		return PFM_FAILED;
-	}
-	
-	// Check if there is an entry that is already committed
-
-	ret = rte_hash_lookup_data(ue_ctx_hashtable_g,&(ue_ctx->cuup_ue_id),(void **)&entry);
-	// If there is no already committed entry
-	if (ret < 0)
-	{
-		if (ret ==  -ENOENT)
-		{
-			// If there is no entry we got this from ue_ctx add
-			// rollback each of the tunnels
-			// Mark the ue_ctx as not used
-			if (ue_ctx->is_row_used == PFM_TRUE)
-			{
-				for (i = 0;i < ue_ctx->pdus_count;i++)
-					pdus_rollback(ue_ctx->pdus_tunnel_list[i]);
-				for (i = 0;i < ue_ctx->drb_count;i++)
-					drb_rollback(ue_ctx->drb_tunnel_list[i]);
-				ue_ctx->is_row_used = PFM_FALSE;
-				return PFM_SUCCESS;
-			}
-			pfm_log_msg(PFM_LOG_ERR,"Invalid state");
-			return PFM_FAILED;
-		}
-
-		else if (ret == -EINVAL)
-			pfm_log_msg(PFM_LOG_ERR,"Error in rte_hash_lookup_data()");
-		return PFM_FAILED;
-	}
-	// If there is a committed entry it the ue_ctx could be from 
-	// ue_ctx_remove
-	// ue_ctx_modify
-	// or simply and unmodified ue_ctx
-
-	// If the entry was removed or unmodified
-	if (ue_ctx == entry)
-	{
-		// If the entry was removed rollback the tunnels 
-		if (entry->is_row_used ==  PFM_FALSE)
-		{
-			for (i = 0;i < ue_ctx->pdus_count;i++)
-				ret_val = pdus_rollback(ue_ctx->pdus_tunnel_list[i]);
-			for (i = 0;i < ue_ctx->drb_count;i++)
-				ret_val =drb_rollback(ue_ctx->drb_tunnel_list[i]);
-			entry->is_row_used =  PFM_TRUE;
-		}
-		return PFM_SUCCESS;
-	}
-
-	// If nt and entry are not equal to each other and have is_row_used 
-	// PFM_TRUE then obtained form ue_ctx_modify
-
-	if ((ue_ctx->is_row_used == PFM_TRUE) && (entry->is_row_used == PFM_TRUE))
-	{
-		// if entry was modified rollback the tunnels in the old entry
-		for (i = 0;i < entry->pdus_count;i++)
-			ret_val = pdus_rollback(entry->pdus_tunnel_list[i]);
-		for (i = 0;i < entry->drb_count;i++)
-			ret_val = drb_rollback(entry->drb_tunnel_list[i]);
-		
-		ue_ctx->is_row_used = PFM_FALSE;
-		return PFM_SUCCESS;
-	}
-	return PFM_FAILED;
-}
-
 
 void	
 ue_ctx_print_list(FILE *fp)

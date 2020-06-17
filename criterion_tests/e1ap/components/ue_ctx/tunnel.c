@@ -3,15 +3,10 @@
 #include "tunnel.h"
 #include "pfm_comm.h"
 #include "pfm_utils.h"
-/*XXX
-#include "pfm_route.h"
 #include "e1ap_comm.h"
 #include "e1ap_bearer_setup.h"
-XXX*/
 #include <rte_hash.h>
 #include <rte_jhash.h>
-#include <string.h>
-
 #include <string.h>
 
 #define PFM_TUNNEL_HASH_NAME "TUNNEL_TABLE_HASH"
@@ -57,7 +52,8 @@ id_alloc(uint32_t *id)
 	}
 	// keep track of where we started to know when to stop 
 	prev =last_allocated_tunnel_id;
-	last_allocated_tunnel_id = (last_allocated_tunnel_id+1)%MAX_TUNNEL_COUNT;
+	last_allocated_tunnel_id = (last_allocated_tunnel_id + 1)%MAX_TUNNEL_COUNT;
+
 	// find an unallocated tunnel id
 	while ((rte_hash_lookup_data(tunnel_id_hash_g,&last_allocated_tunnel_id,NULL) >= 0)
 		&& (last_allocated_tunnel_id != prev))
@@ -75,7 +71,6 @@ id_alloc(uint32_t *id)
 		return PFM_FAILED;
 	}
 	// allocate tunnel id
-	pfm_log_msg(PFM_LOG_ALERT,"Allocating tunnel id %d",last_allocated_tunnel_id);
 	*id = last_allocated_tunnel_id;
 	return PFM_SUCCESS;
 }
@@ -117,25 +112,21 @@ tunnel_key_free(tunnel_key_t* tunnel_key)
 pfm_retval_t
 tunnel_key_alloc(pfm_ip_addr_t remote_ip,tunnel_type_t ttype,tunnel_key_t* tunnel_key)
 {
-	
 	pfm_retval_t ret;
 
-
-	/*XXX
-	route_t* route_entry;
-	XXX*/
+	//XXX route_t* route_entry;
 	switch (ttype)
 	{
 		case TUNNEL_TYPE_PDUS:
 			// Get the local IP address for the given pdus_ul_ip_addr
-			/*XXX
+			/*XXX Test mod
 			route_entry = pfm_route_query(remote_ip);
 			if (route_entry ==  NULL)
 				return PFM_FAILED;
 			tunnel_key->ip_addr = route_entry->gateway_addr;
-			XXX*/
-			// TD Assign the te_id  in a better way
+			Test mod XXX*/
 			tunnel_key->ip_addr = pfm_str2ip("192.168.0.2");
+			// TD Assign the te_id  in a better way
 			ret = id_alloc(&tunnel_key->te_id);
 			if (ret == PFM_FAILED)
 			{
@@ -168,11 +159,6 @@ tunnel_alloc(tunnel_key_t *key)
 {
 
 	uint32_t i;
-	if (key ==  NULL)
-	{
-		pfm_log_msg(PFM_LOG_ERR,"tunnel key is invalid\n");
-		return NULL;
-	}
 
 	for (i = last_allocated_slot_g + 1;i != last_allocated_slot_g;i++)
 	{
@@ -287,12 +273,6 @@ tunnel_add(tunnel_key_t *key)
 		pfm_trace_msg("Initialised tunnel_table");
 	}
 
-	if (key == NULL)
-	{
-		pfm_log_msg(PFM_LOG_ERR,"Invalid tunnel key");
-		return NULL;
-
-	}
 	// Check if entry already exists, return entry 
 	ret = rte_hash_lookup_data(tunnel_hashtable_g,key,(void **)&tunnel_entry);
 	if (ret == 0)

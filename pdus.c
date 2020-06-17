@@ -63,7 +63,6 @@ pdus_setup(ue_ctx_t* ue_ctx,
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_entry");
 		// TD assign cause properly
-		tunnel_key_free(&tunnel_key);
 		pdus_setup_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL);
 		return PFM_FAILED;
 	}
@@ -255,5 +254,22 @@ pdus_modify(ue_ctx_t* ue_ctx,
 	return PFM_SUCCESS;
 }
 
+pfm_retval_t
+pdus_commit(tunnel_t *nt)
+{
+	return tunnel_commit(nt);
+}
+pfm_retval_t
+pdus_remove(tunnel_key_t* tunnel_key)
+{
+	//TODO remove the associated flows as well
+	return tunnel_remove(tunnel_key);
+}
+
+pfm_retval_t
+pdus_rollback(tunnel_t *nt)
+{
+	return tunnel_rollback(nt);
+}
 
 

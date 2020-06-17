@@ -24,6 +24,6 @@ const ue_ctx_t *	ue_ctx_get(uint32_t ue_id);
 void			ue_ctx_print_list(FILE *fp);
 void			ue_ctx_print_show(FILE *fp, uint32_t ue_id);
 pfm_retval_t 		ue_ctx_id_alloc(uint32_t *ue_id);
-pfm_retval_t		ue_ctx_rollback(ue_ctx_t *ue_ctx);
+pfm_retval_t		ue_ctx_id_free(uint32_t *ue_id);
 #endif
 

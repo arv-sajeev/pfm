@@ -1,0 +1,45 @@
+
+ ip [ OPTIONS ] OBJECT { COMMAND | help }
+
+where
+
+	OBJECT = link(l), address(a), route(r), neigh(n), rule(ru)
+
+
+use 'ip OBJECT help' the get options
+
+1. Show IP address of eth0
+
+	ip addr show dev eth0
+
+2. Assigne IP address to eth0
+
+	ip addr add 192.168.121.45/24 dev eth0
+
+3. Remove IP  Address from eth0
+
+	ip addr add 192.168.121.45/24 dev eth0
+
+4. Bring eth0 interface up
+
+	ip link set eth0 up
+
+5. Dispay route
+
+	ip route list
+
+6. Dispaly route of a specific network
+
+	ip r list 172.17.0.0/16
+
+7. Add new route 
+
+	ip r add 172.17.0.0/16 dev eth0
+
+8. Add default  route 
+
+	ip r add default via 192.168.121.1 dev eth0
+
+9. Delete route
+
+	ip route del default

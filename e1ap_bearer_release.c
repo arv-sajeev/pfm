@@ -10,7 +10,7 @@
 pfm_retval_t e1ap_bearer_ctx_release( e1ap_bearer_ctx_release_cmd_t *req)
 {
 	pfm_retval_t ret;
-	 ue_ctx_t* entry;
+	const ue_ctx_t* entry;
 	
 	ret = ue_ctx_remove(req->cuup_ue_id);
 	if (ret != PFM_SUCCESS)

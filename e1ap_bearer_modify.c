@@ -57,6 +57,7 @@ e1ap_bearer_ctx_modify(e1ap_bearer_ctx_modify_req_t *req,
 	{
 		pfm_log_msg(PFM_LOG_ERR,"mismatch in cucp-id req : %u ue : %u",
 					req->cucp_ue_id,ue_ctx->cucp_ue_id);
+		ue_ctx_rollback(ue_ctx);
 		bearer_modify_failure(req->cucp_ue_id,req->cuup_ue_id,FAIL_CAUSE_RNL_UNKNOWN_CU_ID_PAIR,rsp);
 		return PFM_FAILED;
 	}
@@ -155,6 +156,7 @@ e1ap_bearer_ctx_modify(e1ap_bearer_ctx_modify_req_t *req,
 	if (ret == PFM_FAILED)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"attempt to modify ue that doesn't exist");
+		ue_ctx_rollback(ue_ctx);
 		bearer_modify_failure(req->cucp_ue_id,req->cuup_ue_id,FAIL_CAUSE_RNL_UNSPECIFIED,rsp);
 		return PFM_FAILED;
 	}

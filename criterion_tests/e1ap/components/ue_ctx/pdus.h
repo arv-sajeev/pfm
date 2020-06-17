@@ -4,7 +4,7 @@
 #include "tunnel.h"
 #include "ue_ctx.h"
 #include "e1ap_comm.h"
-#include "e1ap_bearer_modify.h"
+#include "e1ap_bearer_setup.h"
 #include "cuup.h"
 #include "pfm_comm.h"
 #include "pfm.h"
@@ -98,40 +98,4 @@ pdus_setup_fail_rsp_create(pdus_setup_req_info_t* req,
 							be set by caller 
 **************************/
 
-pfm_retval_t
-pdus_modify(ue_ctx_t* ue_ctx,
-	    pdus_modify_req_info_t* req,
-	    pdus_modify_succ_rsp_info_t *succ_rsp,
-	    pdus_modify_fail_rsp_info_t *fail_rsp,
-	    uint32_t idx);
-
-
-/***************************
-
-	pdus_modify_fail_rsp_create
-
-	create the failure response in case pdus_modify fails filling in the required info
-	into the provided pdus_modify_fail_rsp_info pointer
-
-	@params
-
-	req		-	pointer to the modify request that failed
-	fail_rsp	-	pointer to the fail response
-	cause		-	reason for failure
-
-	@returns
-
-	void
-
-****************************/
-void
-pdus_modify_fail_rsp_create(pdus_modify_req_info_t *req,
-			    pdus_modify_fail_rsp_info_t *rsp,
-			    e1ap_fail_cause_t cause);
-
-pfm_retval_t pdus_commit(tunnel_t *nt);
-
-pfm_retval_t pdus_remove(tunnel_key_t *tunnel_key);
-
-pfm_retval_t pdus_rollback(tunnel_t *nt);
 #endif
