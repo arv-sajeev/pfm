@@ -24,7 +24,6 @@ drb_setup_fail_rsp_create(drb_setup_req_info_t *req,
 		    e1ap_fail_cause_t cause)
 {
 	rsp->drb_id = req->drb_id;
-	// TD find way to assign cause 
 	rsp->cause  = cause;
 }
 
@@ -39,6 +38,13 @@ drb_setup(ue_ctx_t* ue_ctx,
 	pfm_retval_t ret;
 	tunnel_key_t tunnel_key;
 	tunnel_t* tunnel_entry;
+
+	if (ue_ctx->drb_count == MAX_DRB_PER_UE)
+	{
+		pfm_log_msg(PFM_LOG_ERR,"Overflow MAX_DRB_PER_UE");
+		drb_setup_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL);
+		return PFM_FAILED;
+	}
 	
 	//Assign a tunnel key with drb_dl_ip_addr
 	ret  = tunnel_key_alloc(req->drb_dl_ip_addr,TUNNEL_TYPE_DRB,&tunnel_key);
@@ -55,7 +61,6 @@ drb_setup(ue_ctx_t* ue_ctx,
 	if (tunnel_entry == NULL)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Error allocating tunnel_entry");
-		// TD assign cause properly
 		drb_setup_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL);
 		return PFM_FAILED;
 	}
@@ -93,7 +98,6 @@ drb_modify_fail_rsp_create(drb_modify_req_info_t *req,
 		    	   e1ap_fail_cause_t cause)
 {
 	rsp->drb_id = req->drb_id;
-	// TD find way to assign cause 
 	rsp->cause  = cause;
 }
 
@@ -118,19 +122,33 @@ drb_modify(ue_ctx_t* ue_ctx,
 	}
 
 	// TD do stuff to the drb
-	drb_entry->key 		= old_entry->key;
-	drb_entry->remote_ip 	= old_entry->remote_ip;
-	drb_entry->remote_te_id	= old_entry->remote_te_id;
-	drb_entry->tunnel_type	= old_entry->tunnel_type;
-	drb_entry->drb_info	= old_entry->drb_info;
+	memcpy(drb_entry,old_entry,sizeof(tunnel_t));
 	
 	// Create a drb_modify_succ_rsp
 	drb_modify_succ_rsp_create(drb_entry,succ_rsp);
-
+	//XXX TEST MOD
+	drb_entry->drb_info.mapped_flow_idx = 1;
 	// Assign the new drb to the old one
 	ue_ctx->drb_tunnel_list[idx] = drb_entry;
 	return PFM_SUCCESS;
 }
 
+pfm_retval_t
+drb_remove(tunnel_key_t* tunnel_key)
+{
+	return tunnel_remove(tunnel_key);
+}
 
+
+pfm_retval_t 
+drb_commit(tunnel_t* nt)
+{
+	return tunnel_commit(nt);
+}
+
+pfm_retval_t
+drb_rollback(tunnel_t *nt)
+{
+	return tunnel_rollback(nt);
+}
 

@@ -55,7 +55,6 @@ typedef struct
 } tunnel_t;
 
 
-
 const tunnel_t* tunnel_get(tunnel_key_t *key);
 tunnel_t *	tunnel_add(tunnel_key_t *key);
 pfm_retval_t	tunnel_remove(tunnel_key_t *key);
@@ -64,5 +63,6 @@ pfm_retval_t	tunnel_commit(tunnel_t* nt);
 void 		tunnel_print_show(FILE *fp, tunnel_key_t *key);
 void 		tunnel_print_list(FILE *fp, tunnel_type_t ttype);
 pfm_retval_t 	tunnel_key_alloc(pfm_ip_addr_t ip,tunnel_type_t ttype,tunnel_key_t *key);
-pfm_retval_t	tunnel_key_free(tunnel_key_t *tunnel_key);
+pfm_retval_t	tunnel_remove(tunnel_key_t *key);
+pfm_retval_t	tunnel_rollback(tunnel_t *nt);
 #endif

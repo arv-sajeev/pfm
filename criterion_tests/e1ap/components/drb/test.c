@@ -9,16 +9,20 @@
 
 #include "cuup.h"
 #include "tunnel.h"
+#include "ue_ctx.h"
+#include "drb.h"
 #include <rte_hash.h>
 #include <rte_jhash.h>
-
+#include "e1ap_comm.h"
+#include "e1ap_bearer_setup.h"
+#include "e1ap_bearer_modify.h"
 
 void setup()
 {
 	printf("In test suite setup\n");
 	pfm_retval_t ret;
 	char *v[0];
-	v[0] = strdup("/home/arv-sajeev/DPDK/dpdk-19.11/examples/pfm/criterion_tests/e1ap/components/build/tunnel_test.exe");
+	v[0] = strdup("/home/arv-sajeev/DPDK/dpdk-19.11/examples/pfm/criterion_tests/e1ap/components/drb/build/drb_test.exe");
 	ret = pfm_init(1,v);
 	cr_assert(ret == PFM_SUCCESS);
 	printf("Suite setup complete\n");
@@ -32,109 +36,196 @@ void cleanup()
 	cr_assert(ret == 0,"Test suite cleanup complete\n");
 }
 
-void test1_setup()
+
+TestSuite(setup_suite,.init = setup,.fini = cleanup);
+
+Test(setup_suite,test1,.description = "\nChecks for \n\t1. Successful drb_setup\n\t2. Appropriate succ rsp")
 {
-	printf("\tIn test1 setup\n");
-}
-void test1_cleanup()
-{
-	printf("\tIn test1 cleanup\n");
-}
+	pfm_retval_t ret_val;
+	int ret,i;
+	ue_ctx_t ue_ctx;
+	drb_setup_req_info_t req;
+	drb_setup_fail_rsp_info_t fail_rsp;
+	drb_setup_succ_rsp_info_t succ_rsp;
 
+	// Setup a ue to do all this stuff on 
+	ue_ctx.cuup_ue_id = 4;
+	ue_ctx.cucp_ue_id = 5;
+	ue_ctx.pdus_count = 0;
+	ue_ctx.drb_count  = 0;
 
-void test2_setup()
-{
-	printf("\tIn test2 setup\n");
-}
-void test2_cleanup()
-{
-	printf("\tIn test2 cleanup\n");
-}
+	//Setup request
+	req.drb_id = 3;
+	req.drb_dl_ip_addr = pfm_str2ip("192.168.0.10");
+	req.drb_dl_teid = 4;
 
-
-TestSuite(test_suite,.init = setup,.fini = cleanup);
-
-
-Test(test_suite,test1,.init = test1_setup,.fini = test1_cleanup)
-{
-	pfm_retval_t ret;
-	tunnel_t  *entry1,*entry2;
-	const tunnel_t* const_entry;
-	tunnel_key_t tunnel_key1,tunnel_key2;
-	int ret_int;
-	// Test if key alloc is working 
-	printf("value of ENOENT %d\n",ENOENT);
-	printf("In test 1\n");
-	ret = tunnel_key_alloc(0,TUNNEL_TYPE_PDUS,&tunnel_key1);
-	cr_assert(ret == PFM_SUCCESS,"tunnel key allocation");
-
-	// Test if tunnel_add works
-	entry1 = tunnel_add(&tunnel_key1);
-	cr_assert(entry1 != NULL,"allocate tunnel entry");
-	// Storing this key for future use
-	tunnel_key2 = tunnel_key1;
-
-	// Commit this tunnel
-	entry1->remote_ip = pfm_str2ip("192.168.77.33");
-	entry1->remote_te_id = 5;
-	ret = tunnel_commit(entry1);
-	cr_assert(ret == PFM_SUCCESS,"commit the entry");
-
-	// get back this entry
-	const_entry = tunnel_get(&tunnel_key1);
-	cr_assert(const_entry != NULL,"Entry should exist after committing");
-	cr_assert((const_entry->key.ip_addr == tunnel_key1.ip_addr) && (const_entry->key.te_id == tunnel_key1.te_id),"Same entry");
-	// try adding another with same key
-	entry1 = tunnel_add(&tunnel_key1);
-	cr_assert(entry1 == NULL,"entry with key that already exists");
+	ret_val = drb_setup(&ue_ctx,&req,&succ_rsp,&fail_rsp);
+	cr_assert(ret_val !=  PFM_FAILED,"Successful drb_setup");
+	cr_assert(succ_rsp.drb_id == req.drb_id,"DRB from req and rsp match");
+	cr_assert(ue_ctx.drb_tunnel_list[0]->remote_ip == req.drb_dl_ip_addr,"DRB entry an request contents match");
+	cr_assert(ue_ctx.drb_tunnel_list[0]->remote_te_id == req.drb_dl_teid,"DRB entry an request contents match");
+	
+	
 }
 
-Test(test_suite,test2,.init = test2_setup,.fini = test2_cleanup)
+
+Test(setup_suite,test2,.description = "\nChecks for \n\t1. Successful drb_setup till MAX_DRB_PER_UE \n\t2.Fail for overflow\n\t3.Fail rsp")
 {
-	pfm_retval_t ret;
-	tunnel_t  *entry1,*entry2;
-	tunnel_key_t tunnel_key1,tunnel_key2;
-	int ret_int,i;
-	printf("\t\tIn test2\n");
-	ret = tunnel_key_alloc(0,TUNNEL_TYPE_PDUS,&tunnel_key2);
-	cr_expect(ret == PFM_SUCCESS);
+	pfm_retval_t ret_val;
+	int ret,i;
 
-	entry1 = tunnel_add(&tunnel_key2);
-	cr_expect(entry1 != NULL);
+	ue_ctx_t ue_ctx;
+	drb_setup_req_info_t req;
+	drb_setup_fail_rsp_info_t fail_rsp;
+	drb_setup_succ_rsp_info_t succ_rsp;
 
-	ret = tunnel_commit(entry1);
-	cr_expect(ret == PFM_SUCCESS);
+	// Setup a ue to do all this stuff on 
+	ue_ctx.cuup_ue_id = 4;
+	ue_ctx.cucp_ue_id = 5;
+	ue_ctx.pdus_count = 0;
+	ue_ctx.drb_count  = 0;
 
+	//Setup request
+	req.drb_id = 3;
+	req.drb_dl_ip_addr = pfm_str2ip("192.168.0.10");
+	req.drb_dl_teid = 4;
+
+	for (i = 0;i < MAX_DRB_PER_UE;i++)
+	{	
+
+		ret_val = drb_setup(&ue_ctx,&req,&succ_rsp,&fail_rsp);
+		cr_assert(ret_val !=  PFM_FAILED,"Successful drb_setup");
+		cr_assert(succ_rsp.drb_id == req.drb_id,"DRB from req and rsp match");
+
+		cr_assert(ue_ctx.drb_tunnel_list[i]->remote_ip == req.drb_dl_ip_addr,
+						"DRB entry an request contents match");
+
+		cr_assert(ue_ctx.drb_tunnel_list[i]->remote_te_id == req.drb_dl_teid,
+						"DRB entry an request contents match");
+
+
+		req.drb_id++;
+		req.drb_dl_ip_addr++;
+		req.drb_dl_teid++;
+	}
+	ret_val = drb_setup(&ue_ctx,&req,&succ_rsp,&fail_rsp);
+	cr_assert(ret_val ==  PFM_FAILED,"Overflow detected");  
+	cr_assert(fail_rsp.drb_id == req.drb_id,"req and fail DRB id match");
+	cr_assert(fail_rsp.cause == FAIL_CAUSE_RNL_RESOURCE_UNAVAIL);
+}
+
+TestSuite(modify_suite,.init = setup,.fini = cleanup);
+Test(modify_suite,test1,.description = "\nChecks for \n\t1. Successful modification \n\t2. Appropriate succ rsp \n\t3. Modify fails if drb doesn't exist")
+{
+	pfm_retval_t ret_val;
+	int ret,i;
+	ue_ctx_t ue_ctx;
+	drb_setup_req_info_t req;
+	drb_setup_fail_rsp_info_t fail_rsp;
+	drb_setup_succ_rsp_info_t succ_rsp;
+	drb_modify_req_info_t mod_req;
+
+	// Setup a ue to do all this stuff on 
+	ue_ctx.cuup_ue_id = 4;
+	ue_ctx.cucp_ue_id = 5;
+	ue_ctx.pdus_count = 0;
+	ue_ctx.drb_count  = 0;
+
+	//Setup request
+	req.drb_id = 3;
+	req.drb_dl_ip_addr = pfm_str2ip("192.168.0.10");
+	req.drb_dl_teid = 4;
+
+	ret_val = drb_setup(&ue_ctx,&req,&succ_rsp,&fail_rsp);
+	cr_assert(ret_val !=  PFM_FAILED,"Successful drb_setup");
+	cr_assert(succ_rsp.drb_id == req.drb_id,"DRB from req and rsp match");
+	cr_assert(ue_ctx.drb_tunnel_list[0]->remote_ip == req.drb_dl_ip_addr,"DRB entry and request contents match");
+	cr_assert(ue_ctx.drb_tunnel_list[0]->remote_te_id == req.drb_dl_teid,"DRB entry and request contents match");
+	cr_assert(ue_ctx.drb_tunnel_list[0]->drb_info.mapped_flow_idx == 0,"Check a parameter that is default");
+	printf("\nPassed Successful drb setup\n");
+	// modify without commit
+	mod_req.drb_id = req.drb_id;
+	ret_val = drb_modify(&ue_ctx,&mod_req,&succ_rsp,&fail_rsp,0);
+	cr_assert(ret_val == PFM_FAILED,"Cannot modify before commit");
+	cr_assert(fail_rsp.cause == FAIL_CAUSE_RNL_UNKNOWN_DRB_ID,"appropriate response");
+	
+	// Commit the drb without using ue_ctx commit
+	ret_val  = drb_commit(ue_ctx.drb_tunnel_list[0]);
+	cr_assert(ret_val == PFM_SUCCESS,"Commit the drb tunnel");
+	printf("\nPassed can't modify drb tunnel\n");
+	
+	// Setup mod request
+	mod_req.drb_id = req.drb_id;
+	ret_val = drb_modify(&ue_ctx,&mod_req,&succ_rsp,&fail_rsp,0);
+	cr_assert(ret_val != PFM_FAILED,"DRB modify succeeded");
+	cr_assert(ue_ctx.drb_tunnel_list[0]->drb_info.mapped_flow_idx == 1,"Check modification");
+	printf("\nPassed drb modify");
+}
+
+Test(modify_suite,test2,.description = "\nChecks for \n\t1. Failure for overflow\n\t2. Appropriate failure response")
+{
+
+	pfm_retval_t ret_val;
+	int ret,i;
+	ue_ctx_t ue_ctx;
+	drb_setup_req_info_t req;
+	drb_setup_fail_rsp_info_t fail_rsp;
+	drb_setup_succ_rsp_info_t succ_rsp;
+	drb_modify_req_info_t mod_req;
+
+	tunnel_t *entry;
+	tunnel_key_t tunnel_key;
+	
+
+	// Setup a ue to do all this stuff on 
+	ue_ctx.cuup_ue_id = 4;
+	ue_ctx.cucp_ue_id = 5;
+	ue_ctx.pdus_count = 0;
+	ue_ctx.drb_count  = 0;
+
+	//Setup request
+	req.drb_id = 3;
+	req.drb_dl_ip_addr = pfm_str2ip("192.168.0.10");
+	req.drb_dl_teid = 4;
+
+	ret_val = drb_setup(&ue_ctx,&req,&succ_rsp,&fail_rsp);
+	cr_assert(ret_val !=  PFM_FAILED,"Successful drb_setup");
+	cr_assert(succ_rsp.drb_id == req.drb_id,"DRB from req and rsp match");
+
+	cr_assert(ue_ctx.drb_tunnel_list[0]->remote_ip == req.drb_dl_ip_addr,
+			"DRB entry and request contents match");
+	cr_assert(ue_ctx.drb_tunnel_list[0]->remote_te_id == req.drb_dl_teid,
+			"DRB entry an request contents match");
+	printf("\ndrb setup passed\n");
+	// Commit the drb
+	ret_val  = drb_commit(ue_ctx.drb_tunnel_list[0]);
+	cr_assert(ret_val == PFM_SUCCESS,"Commit the drb tunnel");
+	printf("\nFilling till overflow\n");
 	for (i = 1;i < MAX_TUNNEL_COUNT;i++)
 	{
-		ret = tunnel_key_alloc(0,TUNNEL_TYPE_PDUS,&tunnel_key1);
-		cr_expect(ret == PFM_SUCCESS,"expect a tunnel key to be allocated %d",i);
-	
-		entry1 = tunnel_add(&tunnel_key1);
-		cr_expect(entry1 != NULL,"Expect a tunnel entry be allocated as long as there is space %d",i);
+		ret_val = tunnel_key_alloc(0,TUNNEL_TYPE_PDUS,&tunnel_key);
+		cr_assert(ret == PFM_SUCCESS,"key allocated");
+		
+		entry = tunnel_add(&tunnel_key);
+		cr_assert(entry != NULL,"tunnel entry allocated");
 
-		ret = tunnel_commit(entry1);
-		cr_expect(ret == PFM_SUCCESS,"Expect the commit to be succesful %d",i);
+		ret = tunnel_commit(entry);
+		cr_assert(ret == PFM_SUCCESS,"tunnel commit is successful");
 	}
-	printf("Finished filling it up\n");
-	// When the table is full all should fail
-	ret = tunnel_key_alloc(0,TUNNEL_TYPE_PDUS,&tunnel_key1);
-	cr_expect(ret == PFM_FAILED,"expect a tunnel key to be allocated %d",i);
-	printf("\nOverflow detected\n");
 	
-	entry1 = tunnel_get(&tunnel_key2);
-	cr_assert(entry1 != NULL,"Should get something to delete");
+		ret_val = tunnel_key_alloc(0,TUNNEL_TYPE_PDUS,&tunnel_key);
+		//cr_expect(ret != PFM_SUCCESS,"key allocated");
+		
+		entry = tunnel_add(&tunnel_key);
+		cr_expect(entry == NULL,"tunnel entry allocated");
 
-	ret = tunnel_remove(&tunnel_key2);
-	cr_assert(ret == PFM_SUCCESS,"Expect removal to go well");
+		ret = tunnel_commit(entry);
+		cr_expect(ret != PFM_SUCCESS,"tunnel commit is successful");
+	printf("\nFilled till full\n");
 
-	ret = tunnel_commit(entry1);
-	cr_assert(ret == PFM_SUCCESS,"Committed removal successfully");
-
-	entry1 = tunnel_add(&tunnel_key2);
-	cr_expect(entry1 != NULL,"Expect free space after the tunnel_remove");
-
-	ret = tunnel_commit(entry1);
-	cr_expect(ret == PFM_SUCCESS,"Expect commit to be successful");
-	
+	mod_req.drb_id = req.drb_id;
+	ret_val = drb_modify(&ue_ctx,&mod_req,&succ_rsp,&fail_rsp,0);
+	cr_assert(ret_val == PFM_FAILED,"Overflow detected");
+	cr_assert(fail_rsp.cause == FAIL_CAUSE_RNL_UNKNOWN_DRB_ID,"appropriate fail_rsp");
+	printf("\nOverflow test passed\n");
 }

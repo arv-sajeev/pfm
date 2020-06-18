@@ -12,6 +12,8 @@ SRCS-y :=	test.c			\
 		pfm_log.c 		\
 		pfm_utils.c		\
 		tunnel.c		\
+		drb.c			\
+		
 
 
 # Build using pkg-config variables if possible

@@ -98,10 +98,9 @@ tunnel_key_alloc(pfm_ip_addr_t remote_ip,tunnel_type_t ttype,tunnel_key_t* tunne
 	}
 	
 	// Find a free tunnel id and assign it to the key
-	for (i = last_assigned_id_g+1;i!= last_assigned_id_g;i++)
+	for (i = (last_assigned_id_g+1)%MAX_TUNNEL_COUNT;i != last_assigned_id_g;
+		i = (i+1)%MAX_TUNNEL_COUNT)
 	{
-		if (i >= MAX_TUNNEL_COUNT)
-			i = 0;
 		tunnel_key->te_id = i;
 		ret = rte_hash_lookup(tunnel_hashtable_g,tunnel_key);
 		if (ret == -ENOENT)
@@ -109,6 +108,7 @@ tunnel_key_alloc(pfm_ip_addr_t remote_ip,tunnel_type_t ttype,tunnel_key_t* tunne
 			pfm_trace_msg("Assigning tunnel key %s-%s",
 					pfm_ip2str(tunnel_key->ip_addr,ip_str),
 					tunnel_key->te_id);
+					last_assigned_id_g = i;
 			return PFM_SUCCESS;
 		}
 		if (ret == -EINVAL)
@@ -129,7 +129,8 @@ static tunnel_t*
 tunnel_alloc(tunnel_key_t *key)
 {
 	uint32_t i;
-	for (i = last_allocated_slot_g + 1;i != last_allocated_slot_g;i++)
+	for (i = (last_allocated_slot_g + 1)%MAX_TUNNEL_COUNT;i !=  last_allocated_slot_g;
+		i = (i+1)%MAX_TUNNEL_COUNT)
 	{
 		if (i >= MAX_TUNNEL_COUNT)
 			i = 0;

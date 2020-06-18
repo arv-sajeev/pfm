@@ -1,4 +1,1 @@
-1. Change lookup check value to >= than =
-2. Tunnel get if condition needs brackets
-3. Change tunnel_hash_table key size
-4. Fixes in tunnel id freeing and generation 
+1. Check for MAX no of drbs per ue in drb_setup

@@ -127,4 +127,9 @@ drb_modify_fail_rsp_create(drb_modify_req_info_t *req,
 			    drb_setup_fail_rsp_info_t *rsp,
 			    e1ap_fail_cause_t cause);
 
+pfm_retval_t drb_remove(tunnel_key_t *tunnel_key);
+
+pfm_retval_t drb_commit(tunnel_t *nt);
+
+pfm_retval_t drb_rollback(tunnel_t *nt);
 #endif
