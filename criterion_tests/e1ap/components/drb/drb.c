@@ -38,15 +38,28 @@ drb_setup(ue_ctx_t* ue_ctx,
 	pfm_retval_t ret;
 	tunnel_key_t tunnel_key;
 	tunnel_t* tunnel_entry;
-
+	uint32_t i;
+	
+	//Assign a tunnel key with drb_dl_ip_addr
 	if (ue_ctx->drb_count == MAX_DRB_PER_UE)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Overflow MAX_DRB_PER_UE");
 		drb_setup_fail_rsp_create(req,fail_rsp,FAIL_CAUSE_RNL_RESOURCE_UNAVAIL);
 		return PFM_FAILED;
 	}
-	
-	//Assign a tunnel key with drb_dl_ip_addr
+
+	// Check if drb with this id exists
+	for (i = 0;i < ue_ctx->drb_count;i++)
+	{
+		if (ue_ctx->drb_tunnel_list[i]->drb_info.drb_id == req->drb_id)
+		{
+			pfm_log_msg(PFM_LOG_ERR,"Attempt to add existing drb");
+			drb_setup_fail_rsp_create(req,fail_rsp,
+				FAIL_CAUSE_RNL_MULTIPLE_DRB_ID);
+			return PFM_FAILED;
+
+		} 
+	}
 	ret  = tunnel_key_alloc(req->drb_dl_ip_addr,TUNNEL_TYPE_DRB,&tunnel_key);
 	if (ret == PFM_FAILED)
 	{
@@ -126,8 +139,7 @@ drb_modify(ue_ctx_t* ue_ctx,
 	
 	// Create a drb_modify_succ_rsp
 	drb_modify_succ_rsp_create(drb_entry,succ_rsp);
-	//XXX TEST MOD
-	drb_entry->drb_info.mapped_flow_idx = 1;
+
 	// Assign the new drb to the old one
 	ue_ctx->drb_tunnel_list[idx] = drb_entry;
 	return PFM_SUCCESS;
