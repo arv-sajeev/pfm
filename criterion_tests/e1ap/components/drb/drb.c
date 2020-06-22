@@ -79,10 +79,10 @@ drb_setup(ue_ctx_t* ue_ctx,
 	}
 
 	// Fill the drb details
-	tunnel_entry->remote_ip		=	req->drb_dl_ip_addr;
-	tunnel_entry->remote_te_id	=	req->drb_dl_teid;
-	tunnel_entry->tunnel_type	=	TUNNEL_TYPE_DRB;
-	tunnel_entry->drb_info.drb_id  = 	req->drb_id;
+	tunnel_entry->remote_ip			=	req->drb_dl_ip_addr;
+	tunnel_entry->remote_te_id		=	req->drb_dl_teid;
+	tunnel_entry->tunnel_type		=	TUNNEL_TYPE_DRB;
+	tunnel_entry->drb_info.drb_id  		= 	req->drb_id;
 	// TD many more field to fill
 
 	drb_setup_succ_rsp_create(tunnel_entry,succ_rsp);
@@ -136,6 +136,8 @@ drb_modify(ue_ctx_t* ue_ctx,
 
 	// TD do stuff to the drb
 	memcpy(drb_entry,old_entry,sizeof(tunnel_t));
+	// XXX Test mod
+	drb_entry->drb_info.mapped_flow_idx	=	1;
 	
 	// Create a drb_modify_succ_rsp
 	drb_modify_succ_rsp_create(drb_entry,succ_rsp);

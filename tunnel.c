@@ -61,6 +61,7 @@ tunnel_key_alloc(pfm_ip_addr_t remote_ip,tunnel_type_t ttype,tunnel_key_t* tunne
 {
 	pfm_retval_t ret_val;
 	route_t* route_entry;
+	pfm_arp_entry_t* arp_entry;
 	char ip_str[STR_IP_ADDR_SIZE];
 	uint32_t i;
 	int ret;
@@ -82,10 +83,23 @@ tunnel_key_alloc(pfm_ip_addr_t remote_ip,tunnel_type_t ttype,tunnel_key_t* tunne
 		case TUNNEL_TYPE_PDUS:
 			// Get the local IP address for the given pdus_ul_ip_addr
 			// TODO ip address assigning
+			arp_entry = pfm_arp_query(remote_ip);
+			if (arp_entry != NULL)
+			{
+				tunnel_key->ip_addr = arp_entry->src_ip_addr;
+				break;
+			}
 			route_entry = pfm_route_query(remote_ip);
-			if (route_entry ==  NULL)
-				return PFM_FAILED;
-			tunnel_key->ip_addr = route_entry->gateway_addr;
+			if (route_ptr != NULL)
+			{
+				arp_ptr = pfm_arp_query(route_ptr->gateway_addr);
+				if (arp_ptr != NULL)
+				{
+					tunnel_key->ip_addr = arp_entry->src_ip_addr;
+					break;
+				}
+			}
+			return PFM_FAILED;
 			break;
 		case TUNNEL_TYPE_DRB:
 			// TODO finding F1u address

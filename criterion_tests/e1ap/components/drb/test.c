@@ -200,6 +200,10 @@ Test(modify_suite,test2,.description = "\nChecks for \n\t1. Failure for overflow
 	// Commit the drb
 	ret_val  = drb_commit(ue_ctx.drb_tunnel_list[0]);
 	cr_assert(ret_val == PFM_SUCCESS,"Commit the drb tunnel");
+
+	ret_val = drb_setup(&ue_ctx,&req,&succ_rsp,&fail_rsp);
+	cr_assert(ret_val == PFM_FAILED,,"Prevent drb id duplication");
+	cr_assert(fail_rsp.cause == FAIL_CAUSE_RNL_MULTIPLE_DRB_ID,"approptiate fail rsp");
 	printf("\nFilling till overflow\n");
 	for (i = 1;i < MAX_TUNNEL_COUNT;i++)
 	{
@@ -213,14 +217,14 @@ Test(modify_suite,test2,.description = "\nChecks for \n\t1. Failure for overflow
 		cr_assert(ret == PFM_SUCCESS,"tunnel commit is successful");
 	}
 	
-		ret_val = tunnel_key_alloc(0,TUNNEL_TYPE_PDUS,&tunnel_key);
-		//cr_expect(ret != PFM_SUCCESS,"key allocated");
-		
-		entry = tunnel_add(&tunnel_key);
-		cr_expect(entry == NULL,"tunnel entry allocated");
+	ret_val = tunnel_key_alloc(0,TUNNEL_TYPE_PDUS,&tunnel_key);
+	//cr_expect(ret != PFM_SUCCESS,"key allocated");
+	
+	entry = tunnel_add(&tunnel_key);
+	cr_expect(entry == NULL,"tunnel entry allocated");
 
-		ret = tunnel_commit(entry);
-		cr_expect(ret != PFM_SUCCESS,"tunnel commit is successful");
+	ret = tunnel_commit(entry);
+	cr_expect(ret != PFM_SUCCESS,"tunnel commit is successful");
 	printf("\nFilled till full\n");
 
 	mod_req.drb_id = req.drb_id;
