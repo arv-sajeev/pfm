@@ -117,7 +117,7 @@ static pfm_retval_t  ip_addr_config(	const char *if_name,
 			{
 				pfm_log_std_err(PFM_LOG_ERR,
 				"Not able to assign IP %s to KNI %s. "
-				"WIFEXITED() returm failure",str_ip_addr,if_name);
+				"WIFEXITED() return failure",str_ip_addr,if_name);
 				return PFM_FAILED;
 			}
 			else

@@ -90,10 +90,10 @@ tunnel_key_alloc(pfm_ip_addr_t remote_ip,tunnel_type_t ttype,tunnel_key_t* tunne
 				break;
 			}
 			route_entry = pfm_route_query(remote_ip);
-			if (route_ptr != NULL)
+			if (route_entry != NULL)
 			{
-				arp_ptr = pfm_arp_query(route_ptr->gateway_addr);
-				if (arp_ptr != NULL)
+				arp_entry = pfm_arp_query(route_entry->gateway_addr);
+				if (arp_entry != NULL)
 				{
 					tunnel_key->ip_addr = arp_entry->src_ip_addr;
 					break;

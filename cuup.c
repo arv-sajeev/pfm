@@ -128,6 +128,7 @@ int main(int argc, char *argv[])
  *
  ****************/
 
+/*
 void pfm_data_ind(      const pfm_ip_addr_t remote_ip_addr,
 			const pfm_ip_addr_t local_ip_addr,
 			pfm_protocol_t protocol,
@@ -165,3 +166,4 @@ void pfm_data_ind(      const pfm_ip_addr_t remote_ip_addr,
 }
 
 
+*/

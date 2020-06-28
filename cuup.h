@@ -1,6 +1,8 @@
 #ifndef __CUUP_H__
 #define __CUUP_H__ 1
 
+#define MAX_DU_COUNT 		20	// TODO what number to put
+#define MAX_UPF_COUNT		20	// 
 #define MAX_UE_COUNT		1000
 #define MAX_PDUS_PER_UE		4	// range 1 to 256
 #define MAX_DRB_PER_PDUS	4	// range 1 to 32
