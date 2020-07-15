@@ -27,7 +27,9 @@ SRCS-y :=	cuup.c 			\
 		e1ap_bearer_setup.c	\
 		e1ap_bearer_modify.c	\
 		e1ap_bearer_release.c	\
-		gtp.c
+		gtp.c			\
+		pdcp.c			\
+		sdap.c			\
 
 
 # Build using pkg-config variables if possible

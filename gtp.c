@@ -11,6 +11,8 @@
 #include "cuup.h"
 #include "tunnel.h"
 #include "gtp.h"
+#include "pdcp.h"
+#include "sdap.h"
 
 
 #define ECHO_REQUEST_PERIODICITY  60 // in secs. Should greater than 59
@@ -110,10 +112,7 @@ gtp_echo_timer_wait_cb(__rte_unused struct rte_timer* timer,void *args)
 {
 	// This callback is used only got waiting for ECHO_REQUEST_PERIODICITY time and then 
 	// call the gtp_path_echo_timer_expiry_cb again
-	pfm_retval_t ret_val;
-	int ret;
 	uint64_t ticks;
-	char ip_str[STR_IP_ADDR_SIZE];
 	gtp_table_entry_t  *gtp_entry = (gtp_table_entry_t*)args;
 	ticks = ECHO_REQUEST_PERIODICITY*rte_get_timer_hz();
 	
@@ -130,7 +129,6 @@ static void
 gtp_path_echo_timer_expiry_cb(__rte_unused struct rte_timer* timer,void *args )
 {
 	pfm_retval_t ret_val;
-	int ret;
 	uint64_t ticks;
 	char ip_str[STR_IP_ADDR_SIZE];
 	gtp_table_entry_t *gtp_entry = (gtp_table_entry_t *)args;
@@ -145,10 +143,12 @@ gtp_path_echo_timer_expiry_cb(__rte_unused struct rte_timer* timer,void *args )
 		{
 			pfm_log_msg(PFM_LOG_ERR,"Error in gtp_clear_entry()");
 		}
+		pfm_trace_msg("cleared gtp entry :: %s",pfm_ip2str(gtp_entry->gtp_path.remote_ip,ip_str));
 		// TODO gtp_path_error_notify
 		return;
 	}
 	// Send a gtp echo request
+	pfm_trace_msg("sent gtp echo request to :: %s",pfm_ip2str(gtp_entry->gtp_path.remote_ip,ip_str));
 	gtp_echo_request_send(&(gtp_entry->gtp_path));
 	// Wait for response
 	ticks = T3_RESPONSE*rte_get_timer_hz();
@@ -173,8 +173,6 @@ gtp_echo_response_send(const gtp_path_info_t *t, struct rte_mbuf *mbuf)
 pfm_retval_t 
 gtp_echo_request_send(gtp_path_info_t *t)
 {
-	pfm_retval_t ret_val;
-	int ret;
 	char ip_str[STR_IP_ADDR_SIZE+1];
 	struct rte_mbuf *mbuf;
 	unsigned char* packet;
@@ -202,6 +200,7 @@ gtp_echo_request_send(gtp_path_info_t *t)
 	tunnel_id = (uint32_t*)packet[4];
 	tunnel_id = htonl(0);
 	pfm_data_req(t->local_ip,t->remote_ip,17,t->local_port_no,t->remote_port_no,mbuf);
+	pfm_trace_msg("sent gtp echo request sent :: %s",pfm_ip2str(t->remote_ip,ip_str));
 	return PFM_SUCCESS;
 }
 
@@ -211,7 +210,7 @@ gtp_path_get(pfm_ip_addr_t remote_ip)
 {
 	int ret;
 	char ip_str[STR_IP_ADDR_SIZE+1];
-	ret = rte_hash_lookup(gtp_table_hash_g,&(remote_ip));
+	ret = rte_hash_lookup(gtp_table_hash_g,(void *)&(remote_ip));
 	if (ret < 0)
 	{
 		if (ret == -ENOENT)
@@ -231,7 +230,7 @@ gtp_path_add(pfm_ip_addr_t local_ip, int local_port_no,
 			pfm_ip_addr_t remote_ip, int remote_port_no)
 {
 	pfm_retval_t ret_val;
-	int ret,key;
+	int key;
 	gtp_table_entry_t* gtp_entry;
 	char ip_str[STR_IP_ADDR_SIZE];
 	uint64_t ticks;
@@ -248,7 +247,7 @@ gtp_path_add(pfm_ip_addr_t local_ip, int local_port_no,
 		pfm_trace_msg("gtp_table initialized");
 	}
 	// Add a key for the remote ip
-	key = rte_hash_add_key(gtp_table_hash_g,(void *)remote_ip);
+	key = rte_hash_add_key(gtp_table_hash_g,(void *)&remote_ip);
 	if (key < 0)
 	{
 		if (key == -EINVAL)
@@ -305,7 +304,7 @@ gtp_path_del(pfm_ip_addr_t remote_ip)
 	gtp_table_entry_t *gtp_entry;
 	int ret;
 	// Check if the entry exists
-	ret = rte_hash_lookup(gtp_table_hash_g,(void *)remote_ip);
+	ret = rte_hash_lookup(gtp_table_hash_g,(void *)&remote_ip);
 	if (ret < 0)
 	{
 		if (ret == -ENOENT)
@@ -341,7 +340,7 @@ gtp_data_req(tunnel_t *t, struct rte_mbuf *mbuf)
 	int pkt_len;
 	uint32_t *tunnel_id;
 	uint16_t *gtp_len;
-	gtp_path_info_t *gtp_entry;
+	const gtp_path_info_t *gtp_entry;
 
 	pkt_len		= mbuf->pkt_len;
 	gtp_entry	= gtp_path_get(t->remote_ip);
@@ -363,10 +362,12 @@ gtp_data_req(tunnel_t *t, struct rte_mbuf *mbuf)
 	packet = rte_pktmbuf_mtod(mbuf,unsigned char*);
 	gtp_len 	= (uint16_t*)packet[2];
 	tunnel_id	= (uint32_t*)packet[5];
-	packet[0] 	= 0x30;
+	packet[0] 	= 0x30;					 
+	// Version - 001,  PT - 1, 0,0,0,0 No extension header No sequence No N-PDU definition
 	packet[1] 	= 0xFF; 
-	gtp_len		= htons(pkt_len);
-	tunnel_id	= htonl(t->remote_te_id);
+	// Value for G-PDU
+	*gtp_len	= htons(pkt_len);
+	*tunnel_id	= htonl(t->remote_te_id);
 
 	pfm_data_req(t->key.ip_addr,t->remote_ip,
 			PROTOCOL_UDP,gtp_entry->local_port_no,
@@ -385,20 +386,36 @@ pfm_data_ind(const pfm_ip_addr_t remote_ip_addr,
 	     const int local_port_no,
 	     struct rte_mbuf *mbuf)
 {
-	pfm_retval_t ret_val;
 	unsigned char* packet;
+	char *ret;
+	char ip_str[IP_ADDR_SIZE+1];
 	uint32_t tunnel_id;
-	unsigned char msg_type;
-	gtp_path_info_t *gtp_entry;
+	uint16_t gtp_pload_len;
+	const gtp_path_info_t *gtp_entry;
 	tunnel_key_t tunnel_key;
 	tunnel_t *tunnel_entry;
 	
-	msg_type 	= packet[1];
-	packet 		= rte_pktmbuf_mtod(mbuf,unsigned char*);
-	tunnel_id	= ntohl(*(uint32_t*)(&(packet[4])));
 
-	// swtich on the message type
-	switch(msg_type)
+	// Assuming nothing other than GTP gets routed here
+	packet 		= rte_pktmbuf_mtod(mbuf,unsigned char*);
+
+	// Log if version and flags are different from supported
+	if (packet[0] != 0x30)
+		pfm_log_msg(PFM_LOG_ALERT,"incompatible GTP format :: %0X",packet[0]);
+	
+	// store gtp_payload length and tunnel_id
+	gtp_pload_len	= ntohl(*(uint16_t*)(&(packet[2])));
+	tunnel_id	= ntohl(*(uint32_t*)(&(packet[4])));
+	ret = rte_pktmbuf_adj(mbuf,GTP_HDR_SIZE);
+	
+	if (ret == NULL)
+	{
+		pfm_log_msg(PFM_LOG_ALERT,"incompatible size GTP packet");
+		return;
+	}
+	
+	// switch on the message type
+	switch(packet[1])
 	{
 		case 0x01:
 			// Echo request so send an echo response
@@ -418,39 +435,38 @@ pfm_data_ind(const pfm_ip_addr_t remote_ip_addr,
 		case 0xFF:
 			// T-PDU
 			tunnel_key.ip_addr 	= local_ip_addr;
-			tunnel_key.te_id	= local_port_no;
+			tunnel_key.te_id	= tunnel_id;
 			tunnel_entry 		= tunnel_get(&tunnel_key);
+
 			if (tunnel_entry == NULL)
 			{
-				pfm_log_msg(PFM_LOG_ERR,"invalid tunnel entry");
-				break;
+				pfm_log_msg(PFM_LOG_ERR,"Invalid tunnel_entry %s %d",
+						pfm_ip2str(local_ip_addr,ip_str),tunnel_id);
+				return;
 			}
+
+			if (remote_ip_addr != tunnel_entry->remote_ip)
+			{
+				pfm_log_msg(PFM_LOG_ERR,"Invalid gtp path %s %d",
+						pfm_ip2str(local_ip_addr,ip_str),tunnel_id);
+				return;
+			}
+
 			if (tunnel_entry->tunnel_type == TUNNEL_TYPE_PDUS)
 			{
-				//TODO 
+				//TODO flowid 
+				gtp_sdap_data_ind(tunnel_entry,10,mbuf);
+				return;
 			}
 
 			if (tunnel_entry->tunnel_type == TUNNEL_TYPE_DRB)
 			{
 				//TODO
+				gtp_pdcp_data_ind(tunnel_entry,10,mbuf);
+				return;
 			}
 	}
 
-	/* TODO:
-
-		Decode G-PDU to get Message Type and TEID
-		if MsgType == Echo Request, respond with Echo Response
-		if MsgType == Echo Response,
-		if MsgType == T-PDU do the following
-		   - search in Hash for Tunnel Info
-		   - if not found, drop packet with error
-		   - if found, do the following
-			get if_type from Tunnel Info
-		        if ifType = NGu invoke gtp_sdapdat_ind()
-			if ifType - F1u invoke gtp_pdcpdat_ind()
-
-		Remove GTP Header
-	*/
 }
 
 

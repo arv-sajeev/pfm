@@ -1,0 +1,14 @@
+/home/arv-sajeev/DPDK/dpdk-19.11/examples/pfm/gtp.c:388:15: warning: unused variable ‘ret_val’ [-Wunused-variable]
+  pfm_retval_t ret_val;
+               ^~~~~~~
+/home/arv-sajeev/DPDK/dpdk-19.11/examples/pfm/gtp.c:383:22: warning: unused parameter ‘protocol’ [-Wunused-parameter]
+       pfm_protocol_t protocol,
+                      ^~~~~~~~
+/home/arv-sajeev/DPDK/dpdk-19.11/examples/pfm/gtp.c:396:12: warning: ‘packet’ is used uninitialized in this function [-Wuninitialized]
+  msg_type  = packet[1];
+  ~~~~~~~~~~^~~~~~~~~~~
+/home/arv-sajeev/DPDK/dpdk-19.11/examples/pfm/gtp.c: At top level:
+cc1: warning: unrecognized command line option ‘-Wno-address-of-packed-member’
+  LD cuup.exe
+  INSTALL-APP cuup.exe
+  INSTALL-MAP cuup.exe.map
