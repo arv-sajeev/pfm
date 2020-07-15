@@ -1,12 +1,29 @@
-#addr.edpat;
 
-!---------------------NGu Subnet
-$LOCALMAC	=	$NGu_LOCAL_MAC;
-$LOCALIP	=	$NGu_LOCAL_IP;
-$REMOTEMAC	=	$NGu_REMOTE_MAC;
-$REMOTEIP	=	$NGu_REMOTE_IP1;
-$ETHPORT	=	$NGu_ETHPORT;
 
-@GTP;
-#gtp_main.edpat;
+>$ETHPORT
+!----------------Ethernet header
+$REMOTEMAC		!00-05  Dst MAC Addr
+$LOCALMAC		!06-11	Src MAC Addr
+08 00			!12-13	EtherType=IPv4
+!IP Header
+45			!14    Version and Header Length
+00			!15    DSCP
+00 2E			!16-17 Lenght including IP Header. 0x2E = 46
+7d 86			!18-19 Identifier
+40 00			!20-21 Flags
+40			!22    Time to Live
+11			!23 Protocol = UDP
+&14-33			!24-25 Checksum of the complete IP header
+$LOCALIP		!26-29 Soruce IP
+$REMOTEIP		!30-33 Dsp IP
+!Below is the UDP Header
+01 02			!34-35 Source Port
+$GTP_PORTNO		!36-37 Destination Port
+00 1A			!38-39 Length of UDP header and Data. 26 bytes
+00 00			!40-41 Checksum. set to 00 00 as checksum is not used
+
+!Below is GTP Header. Not yet complete
+      00 11 22 33 44 55 66 77 		!42-49 
+00 11 22 33 44 55 66 77 88 99;		!50-60
+
 
