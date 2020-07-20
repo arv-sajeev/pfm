@@ -9,29 +9,38 @@ typedef enum
 	TUNNEL_TYPE_DRB,
 } tunnel_type_t;
 
+typedef enum
+{
+	FLOW_TYPE_DL,
+	FLOW_TYPE_UL,
+	FLOW_TYPE_UL_DL,
+
+} flow_type_t;
+
 typedef struct
 {
 	unsigned int	drb_id:5;
 	unsigned int	is_default:1;
 	unsigned int	is_dl_sdap_hdr_enabled:1;
 	unsigned int	is_ul_sdap_hdr_enabled:1;
-	uint32_t	mapped_flow_idx; // valid only if is_ul_sdap_hdr_enabled
+	uint32_t	mapped_flow_idx; // valid only if is_ul_sdap_hdr_enabled is not enabled
 	uint32_t	mapped_pdus_idx; 
 } drb_info_t;
 
 typedef struct 
 {
-		unsigned int flow_id:6;
-		unsigned int r_qos_status:2;
-		uint32_t mapped_drb_idx;
+		pfm_bool_t	flow_allocated:1;
+		flow_type_t	flow_type:2;
+		unsigned int 	r_qos_status:2;
+		uint32_t 	mapped_drb_idx;
 } flow_info_t;
 
 typedef struct
 {
 	unsigned int	pdus_id:8;
 	unsigned int 	flow_count:6;
-	uint64_t ul_new_flow_detected_bit_map;
-	flow_info_t flow_list[MAX_FLOWS_PER_PDUS];
+	uint64_t 	ul_new_flow_detected_bit_map;
+	flow_info_t 	flow_list[MAX_FLOWS_PER_PDUS];
 } pdus_info_t;
 
 typedef struct 

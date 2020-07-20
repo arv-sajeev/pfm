@@ -474,6 +474,7 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 					   "Flow id",
 					   "Status",
 				           "DRB id");
+				/*TODO
 				for (int i = 0;i < entry->pdus_info.flow_count;i++)
 				{
 					fprintf(fp,"%-7d %-6d %-6d",
@@ -481,6 +482,7 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 					    entry->pdus_info.flow_list[i].r_qos_status,
 					    entry->pdus_info.flow_list[i].mapped_drb_idx);
 				}
+				*/
 				break;
 
 		case TUNNEL_TYPE_DRB:

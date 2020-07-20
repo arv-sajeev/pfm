@@ -35,9 +35,7 @@ typedef struct
 	uint16_t	local_port_no;
 	uint16_t	tunnel_count;
 	uint16_t	retry_count;
-}
- 
-gtp_path_info_t;
+} gtp_path_info_t;
 
 typedef struct
 {
@@ -53,12 +51,17 @@ static pfm_bool_t gtp_table_up_g = PFM_FALSE;
 
 // Callback declarations
 
-static pfm_retval_t 
+static void 
 gtp_echo_request_timer_cb(__rte_unused struct rte_timer *timer,void *args);
 
-static pfm_retval_t
+static void
 gtp_echo_response_timeout_cb(__rte_unused struct rte_timer *timer,void *args);
 
+// Static function declarations
+
+static pfm_retval_t gtp_echo_response_send(const gtp_path_info_t *gtp_path,struct rte_mbuf *mbuf);
+static pfm_retval_t gtp_echo_request_send(gtp_path_info_t *gtp_path);
+static const gtp_path_info_t* gtp_path_get(pfm_ip_addr_t remote_ip);
 	
 // The key of the GTP table is simply the remote ip address
 // We just use it to check whether it already exists 
@@ -130,10 +133,25 @@ gtp_path_clear(gtp_table_entry_t* gtp_entry)
 }
 
 static pfm_retval_t
-gtp_path_timer_reset(gtp_table_entry_t *gtp_entry)
+gtp_path_timer_reset(const gtp_path_info_t *gtp_path)
 {
 	char ip_str[STR_IP_ADDR_SIZE+1];
 	uint64_t ticks = T3_RESPONSE*rte_get_timer_hz();
+	int ret;
+	gtp_table_entry_t *gtp_entry;
+	ret = rte_hash_lookup(gtp_table_hash_g,(const void *)&(gtp_path->remote_ip));
+	if  (ret < 0)
+	{
+
+		if (ret == -ENOENT)
+		{
+			pfm_log_msg(PFM_LOG_ERR,"entry not found %s",
+						pfm_ip2str(gtp_entry->gtp_path.remote_ip,ip_str));
+			return PFM_FAILED;
+		}
+		pfm_log_msg(PFM_LOG_ERR,"rte_hash_lookup() failed");
+		return PFM_FAILED;
+	}
 	
 	// Reset retry count
 	gtp_entry->gtp_path.retry_count = 0;
@@ -145,6 +163,7 @@ gtp_path_timer_reset(gtp_table_entry_t *gtp_entry)
 				(void *)gtp_entry);
 	pfm_trace_msg("sent gtp_echo_request :: %s",
 			pfm_ip2str(gtp_entry->gtp_path.remote_ip,ip_str));
+	return PFM_SUCCESS;
 }
 
 static void
@@ -187,7 +206,6 @@ gtp_echo_request_timer_cb(__rte_unused struct rte_timer* timer,void *args)
 static void
 gtp_echo_response_timeout_cb(__rte_unused struct rte_timer* timer,void *args)
 {
-	pfm_retval_t ret_val;
 	uint64_t ticks;
 	char ip_str[STR_IP_ADDR_SIZE+1];
 	gtp_table_entry_t *gtp_entry = (gtp_table_entry_t*)args;
@@ -206,7 +224,7 @@ gtp_echo_response_timeout_cb(__rte_unused struct rte_timer* timer,void *args)
 				(void *)gtp_entry);
 }
 
-pfm_retval_t
+static pfm_retval_t
 gtp_echo_response_send(const gtp_path_info_t *t, struct rte_mbuf *mbuf)
 {
 	unsigned char* packet = rte_pktmbuf_mtod(mbuf,unsigned char*);
@@ -215,7 +233,7 @@ gtp_echo_response_send(const gtp_path_info_t *t, struct rte_mbuf *mbuf)
 	return PFM_SUCCESS;
 }
 
-pfm_retval_t 
+static pfm_retval_t 
 gtp_echo_request_send(gtp_path_info_t *t)
 {
 	char ip_str[STR_IP_ADDR_SIZE+1];
@@ -331,7 +349,7 @@ gtp_path_add(pfm_ip_addr_t local_ip, int local_port_no,
 	//Increment tunnel count
 	gtp_entry->gtp_path.tunnel_count++;
 	// Send request
-	gtp_echo_request_send(gtp_entry->gtp_path);
+	gtp_echo_request_send(&(gtp_entry->gtp_path));
 
 	// Wait for response till T3_RESPONSE
 	ticks = T3_RESPONSE*rte_get_timer_hz();
@@ -339,7 +357,7 @@ gtp_path_add(pfm_ip_addr_t local_ip, int local_port_no,
 				ticks,
 				SINGLE,
 				rte_lcore_id(),
-			        gtp_echo_request_timeout_cb,
+			        gtp_echo_response_timeout_cb,
 				(void *)gtp_entry);
 
 	pfm_trace_msg("Reset timer for %s %d",
@@ -382,7 +400,7 @@ gtp_path_del(pfm_ip_addr_t remote_ip)
 
 
 void 
-gtp_data_req(tunnel_t *t, struct rte_mbuf *mbuf)
+gtp_data_req(const tunnel_t *t,uint32_t flow_id,struct rte_mbuf *mbuf)
 {
 	// GTP header
 	unsigned char *packet;
@@ -444,7 +462,7 @@ pfm_data_ind(const pfm_ip_addr_t remote_ip_addr,
 	uint16_t gtp_pload_len;
 	const gtp_path_info_t *gtp_entry;
 	tunnel_key_t tunnel_key;
-	tunnel_t *tunnel_entry;
+	const tunnel_t *tunnel_entry;
 	
 
 	// Assuming nothing other than GTP gets routed here
@@ -469,7 +487,7 @@ pfm_data_ind(const pfm_ip_addr_t remote_ip_addr,
 	if (gtp_entry == NULL)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"invalid gtp entry");
-		break;
+		return;
 	}
 	
 	// switch on the message type
