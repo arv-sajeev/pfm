@@ -11,6 +11,7 @@ typedef enum
 
 typedef enum
 {
+	FLOW_TYPE_UNUSED,
 	FLOW_TYPE_DL,
 	FLOW_TYPE_UL,
 	FLOW_TYPE_UL_DL,
@@ -29,7 +30,6 @@ typedef struct
 
 typedef struct 
 {
-		pfm_bool_t	flow_allocated:1;
 		flow_type_t	flow_type:2;
 		unsigned int 	r_qos_status:2;
 		uint32_t 	mapped_drb_idx;
@@ -65,6 +65,7 @@ typedef struct
 
 
 const tunnel_t* tunnel_get(tunnel_key_t *key);
+const tunnel_t* tunnel_get_with_idx(uint32_t tunnel_idx);
 tunnel_t *	tunnel_add(tunnel_key_t *key);
 pfm_retval_t	tunnel_remove(tunnel_key_t *key);
 tunnel_t *	tunnel_modify(tunnel_key_t *key);

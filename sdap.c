@@ -7,25 +7,20 @@
 #include "pdcp.h"
 #include "sdap.h"
 
-void pdcp_data_ind(tunnel_t *drb_tunnel,struct rte_mbuf *mbuf)
+void pdcp_data_ind(const tunnel_t *drb_tunnel,struct rte_mbuf *mbuf)
 {
-	tunnel_key_t pdus_tunnel_key;
-	flow_info_t *flow_info;
+	const flow_info_t *flow_info;
 	uint32_t drb_flow_idx;
 	unsigned char *packet = rte_pktmbuf_mtod(mbuf,unsigned char*);
 	char ip_str[STR_IP_ADDR_SIZE+1];
 
-	// Get the pdus tunnel key
-	pdus_tunnel_key.ip_addr 	= drb_tunnel->key.ip_addr;
-	pdus_tunnel_key.te_id		= drb_tunnel->drb_info.mapped_pdus_idx;
-	const tunnel_t *pdus_tunnel 	= tunnel_get(&pdus_tunnel_key);
+	// Get pdus tunnel
+	const tunnel_t *pdus_tunnel 	= tunnel_get_with_idx(drb_tunnel->drb_info.mapped_pdus_idx);
 
 	// If pdus is invalid log error
 	if (pdus_tunnel == NULL)
 	{
-		pfm_log_msg(PFM_LOG_ERR,"Invalid pdus key :%s %d",
-					pfm_ip2str(drb_tunnel->key.ip_addr,ip_str),
-					drb_tunnel->drb_info.mapped_pdus_idx);
+		pfm_log_msg(PFM_LOG_ERR,"Invalid pdus index : %d",drb_tunnel->drb_info.mapped_pdus_idx);
 		return;
 	}
 	
@@ -43,28 +38,21 @@ void pdcp_data_ind(tunnel_t *drb_tunnel,struct rte_mbuf *mbuf)
 	// Validate flow info
 	flow_info = &(pdus_tunnel->pdus_info.flow_list[drb_flow_idx]);
 
-	if (flow_info->flow_allocated != PFM_TRUE ||
-		flow_info->mapped_drb_idx != drb_tunnel->key.te_id || 
-		flow_info->flow_type != FLOW_TYPE_UL || 
-		flow_info->flow_type != FLOW_TYPE_UL_DL 
-		)
+	if (flow_info->flow_type != FLOW_TYPE_UL && flow_info->flow_type != FLOW_TYPE_UL_DL)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Invalid drb flow mapping :: %s %d  flow :: %d",
-					pfm_ip2str(drb_tunnel->key.ip_addr,ip_str),drb_tunnel->key.te_id,drb_flow_idx);
+		pfm_ip2str(drb_tunnel->key.ip_addr,ip_str),drb_tunnel->key.te_id,drb_flow_idx);
 		return;
 	}
 	
-
-
 	// Send packet to next layer UL
 	gtp_data_req(pdus_tunnel,drb_flow_idx,mbuf);
 	return;
 }
 
-void gtp_sdap_data_ind(tunnel_t *pdus_tunnel, uint32_t flow_id, struct rte_mbuf *mbuf)
+void gtp_sdap_data_ind(const tunnel_t *pdus_tunnel, uint32_t flow_id, struct rte_mbuf *mbuf)
 {
-	tunnel_key_t drb_tunnel_key;
-	flow_info_t *flow_info;
+	const flow_info_t *flow_info;
 	char *ret;
 	unsigned char *packet;
 	char ip_str[STR_IP_ADDR_SIZE+1];
@@ -73,21 +61,20 @@ void gtp_sdap_data_ind(tunnel_t *pdus_tunnel, uint32_t flow_id, struct rte_mbuf 
 	flow_info = &(pdus_tunnel->pdus_info.flow_list[flow_id]);
 
 	// Validate flow details 
-	if (flow_info->flow_allocated != PFM_TRUE ||
-		flow_info->flow_type != FLOW_TYPE_DL || flow_info->flow_type != FLOW_TYPE_UL_DL)
+	if (flow_info->flow_type != FLOW_TYPE_DL && flow_info->flow_type != FLOW_TYPE_UL_DL)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Invalid flow mapping :: %s %d  flow :: %d",
 					pfm_ip2str(pdus_tunnel->key.ip_addr,ip_str),pdus_tunnel->key.te_id,flow_id);
 		return;
 	}
-	drb_tunnel_key.ip_addr = pdus_tunnel->key.ip_addr;
-	drb_tunnel_key.te_id   = flow_info->mapped_drb_idx;
-	const tunnel_t *drb_tunnel = tunnel_get(&drb_tunnel_key);
+
+	// Get DRB tunnel
+	const tunnel_t *drb_tunnel = tunnel_get_with_idx(flow_info->mapped_drb_idx);
 
 	if (drb_tunnel == NULL)
 	{
 		pfm_log_msg(PFM_LOG_ERR,"Invalid flow mapping :: %s %d  flow :: %d",
-					pfm_ip2str(pdus_tunnel->key.ip_addr,ip_str),drb_tunnel->key.te_id,flow_id);
+			pfm_ip2str(pdus_tunnel->key.ip_addr,ip_str),drb_tunnel->key.te_id,flow_id);
 		return;
 	}
 
@@ -107,24 +94,5 @@ void gtp_sdap_data_ind(tunnel_t *pdus_tunnel, uint32_t flow_id, struct rte_mbuf 
 	}
 	
 	pdcp_data_req(drb_tunnel,flow_id,mbuf);
-	// map PDU Tunnel 'pdus_tunnel' to DRB Tunnel 'drb_tunnel' as below
-	/*
-	tunnel_t *drb_tunnel;
-	for (i=0; i < pdus_tunnel->pdus_info.flow_count; i++)
-	{
-		if (pdus_tunnel->pdus_info.flow_list[i].flow_id == flow_id)
-		{
-			// located to mapping
-			drb_tunnel =
-			 pdus_tunnel->pdus_info.flow_list[i].mapped_drb_tunnel;
-			// need to rename mapped_drb_idx to mapped_drb_tunnel
-
-			pdcp_data_req(drb_tunnel, flow_id,mbuf);
-			return;
-		}
-	}
-	*/
-
-	/* Write error log as the mapping is not found */
-
+	return;
 }

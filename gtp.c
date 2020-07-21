@@ -139,7 +139,7 @@ gtp_path_timer_reset(const gtp_path_info_t *gtp_path)
 	uint64_t ticks = T3_RESPONSE*rte_get_timer_hz();
 	int ret;
 	gtp_table_entry_t *gtp_entry;
-	ret = rte_hash_lookup(gtp_table_hash_g,(const void *)&(gtp_path->remote_ip));
+	ret = rte_hash_lookup_data(gtp_table_hash_g,(const void *)&(gtp_path->remote_ip),(void **)&gtp_entry);
 	if  (ret < 0)
 	{
 
@@ -309,7 +309,7 @@ gtp_path_add(pfm_ip_addr_t local_ip, int local_port_no,
 		}
 		pfm_trace_msg("gtp_table initialized");
 	}
-	ret = rte_hash_lookup(gtp_table_hash_g,(void *)&(remote_ip));
+	ret = rte_hash_lookup_data(gtp_table_hash_g,(void *)&(remote_ip),(void **)&gtp_entry);
 
 	if (ret == -ENOENT)
 	{
@@ -470,11 +470,15 @@ pfm_data_ind(const pfm_ip_addr_t remote_ip_addr,
 
 	// Log if version and flags are different from supported
 	if (packet[0] != 0x30)
+	{
 		pfm_log_msg(PFM_LOG_ALERT,"incompatible GTP format :: %0X",packet[0]);
+		return;
+	}
 	
 	// store gtp_payload length and tunnel_id
-	gtp_pload_len	= ntohl(*(uint16_t*)(&(packet[2])));
+	gtp_pload_len	= ntohs(*(uint16_t*)(&(packet[2])));
 	tunnel_id	= ntohl(*(uint32_t*)(&(packet[4])));
+
 	ret = rte_pktmbuf_adj(mbuf,GTP_HDR_SIZE);
 	
 	if (ret == NULL)

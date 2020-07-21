@@ -62,7 +62,7 @@ tunnel_key_alloc(pfm_ip_addr_t remote_ip,tunnel_type_t ttype,tunnel_key_t* tunne
 	pfm_retval_t ret_val;
 	route_t* route_entry;
 	pfm_arp_entry_t* arp_entry;
-	char ip_str[STR_IP_ADDR_SIZE];
+	char ip_str[STR_IP_ADDR_SIZE+1];
 	uint32_t i;
 	int ret;
 	// Check if the tunnel table is up else initialize it
@@ -169,7 +169,7 @@ tunnel_get(tunnel_key_t *key)
 {
 	int ret;	
 	tunnel_t *tunnel_entry;
-	char ip_str[STR_IP_ADDR_SIZE];
+	char ip_str[STR_IP_ADDR_SIZE+1];
 	// If tunnel_table not up ERROR
 	if (tunnel_table_up_g == PFM_FALSE)	
 	{
@@ -206,12 +206,31 @@ tunnel_get(tunnel_key_t *key)
 	return NULL;
 }
 
+const tunnel_t*
+tunnel_get_with_idx(uint32_t tunnel_idx)
+{
+	if (tunnel_table_up_g == PFM_FALSE)
+	{
+		pfm_log_msg(PFM_LOG_ERR,"tunnel table uninitialized");
+		return NULL;
+	}
+	tunnel_t *tunnel_entry;
+	tunnel_entry = &(tunnel_table_g[tunnel_idx]);
+
+	if (tunnel_entry->is_row_used != PFM_TRUE)
+	{
+		pfm_log_msg(PFM_LOG_ERR,"Invalid tunnel idx %d",tunnel_idx);
+		return NULL;
+	}
+	return tunnel_entry;
+}
+
 tunnel_t *      
 tunnel_add(tunnel_key_t *key)
 {
 	int ret;	
 	tunnel_t *tunnel_entry;
-	char ip_str[STR_IP_ADDR_SIZE];
+	char ip_str[STR_IP_ADDR_SIZE+1];
 
 	// Check if table is up, else initialize it 
 	if (tunnel_table_up_g == PFM_FALSE)	
@@ -249,7 +268,7 @@ tunnel_remove(tunnel_key_t *key)
 {
 	int ret;	
 	tunnel_t * entry;
-	char ip_str[STR_IP_ADDR_SIZE];
+	char ip_str[STR_IP_ADDR_SIZE+1];
 	if (tunnel_table_up_g == PFM_FALSE)	
 	{
 		pfm_log_msg(PFM_LOG_ERR,"tunnel_table uninitialized");
@@ -315,7 +334,7 @@ tunnel_commit(tunnel_t* nt)
 {
 	int ret;
 	tunnel_t *entry;
-	char ip_str[STR_IP_ADDR_SIZE];
+	char ip_str[STR_IP_ADDR_SIZE+1];
 	if (tunnel_table_up_g == PFM_FALSE)	
 	{
 		pfm_log_msg(PFM_LOG_ERR,"tunnel_table uninitialized");
@@ -436,7 +455,7 @@ tunnel_print_show(FILE *fp, tunnel_key_t *key)
 {
 	int ret;	
 	tunnel_t* entry;
-	char tunnel_ip_r[STR_IP_ADDR_SIZE],tunnel_ip_l[STR_IP_ADDR_SIZE];
+	char tunnel_ip_r[STR_IP_ADDR_SIZE+1],tunnel_ip_l[STR_IP_ADDR_SIZE+1];
 	if (tunnel_table_up_g == PFM_FALSE)	
 	{
 		pfm_log_msg(PFM_LOG_ERR,"tunnel_table uninitialized");
@@ -525,7 +544,7 @@ tunnel_print_list(FILE *fp, tunnel_type_t type)
 	tunnel_t *entry;
 	
 	
-	char tunnel_ip_r[STR_IP_ADDR_SIZE],tunnel_ip_l[STR_IP_ADDR_SIZE];	
+	char tunnel_ip_r[STR_IP_ADDR_SIZE+1],tunnel_ip_l[STR_IP_ADDR_SIZE+1];	
 	if (tunnel_table_up_g == PFM_FALSE)	
 	{
 		pfm_log_msg(PFM_LOG_ERR,"tunnel_table uninitialized");
